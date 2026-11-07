@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, ApiError } from "./api";
-import { ErrorBox, Spinner } from "./components/Bits";
+import { ErrorBox, Generating } from "./components/Bits";
 import { QuizView } from "./screens/QuizView";
 import { ResultsView } from "./screens/ResultsView";
 import { Setup } from "./screens/Setup";
@@ -31,6 +31,7 @@ export default function App() {
     setMaterials(req);
     setError(null);
     setScreen("generating");
+    top();
     try {
       startQuiz(await api.create(req));
     } catch (e) {
@@ -49,8 +50,7 @@ export default function App() {
       setScreen("results");
       top();
     } catch (e) {
-      const err = e as ApiError;
-      setError({ title: "Your answers couldn't be marked", message: `${err.message} Your answers are still here.`, retryable: true, retry: submit });
+      setError({ title: "Your answers couldn't be marked", message: `${(e as ApiError).message} Your answers are still filled in.`, retryable: true, retry: submit });
     } finally { setBusy(false); }
   }
 
@@ -59,42 +59,43 @@ export default function App() {
     setBusy(true);
     setError(null);
     try { startQuiz(await api.retake(results.quiz_id)); }
-    catch (e) { setError({ title: "The retake couldn't be started", message: (e as ApiError).message, retryable: false }); }
+    catch (e) { setError({ title: "The retake couldn't start", message: (e as ApiError).message, retryable: false }); }
     finally { setBusy(false); }
   }
 
   return (
     <div className="min-h-full">
-      <header className="sticky top-0 z-20 border-b-2 border-[#ece9f5] bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-          <button onClick={() => { setScreen("setup"); setError(null); }} className="flex items-center gap-2" aria-label="Viva home">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 shadow-[0_3px_0_0_var(--color-brand-800)]">
-              <svg viewBox="0 0 32 32" className="h-6 w-6" aria-hidden><path d="M9 10l7 13 7-13" stroke="white" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </span>
-            <span className="text-2xl font-black tracking-tight text-brand-700">viva</span>
+      <header className="sticky top-0 z-20 border-b border-rule bg-paper/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+          <button onClick={() => { setScreen("setup"); setError(null); }} className="flex items-center gap-2.5" aria-label="Viva, back to your materials">
+            <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden>
+              <circle cx="9" cy="11" r="7.5" fill="none" stroke="var(--color-form)" strokeWidth="2" />
+              <circle cx="21" cy="11" r="7.5" fill="var(--color-ink)" />
+            </svg>
+            <span className="display-wide text-[1.35rem] leading-none tracking-[-0.03em]">viva</span>
           </button>
-          <span className="hidden text-sm font-bold text-slate-400 sm:inline">Active recall quizzes from your labs</span>
+          <span className="form-label hidden sm:inline">Recall quizzes for lab work</span>
+          {screen === "quiz" && quiz && <span className="ml-auto text-[0.85rem] text-muted">{quiz.is_retake ? "Retake" : "Quiz in progress"}</span>}
         </div>
       </header>
 
       {error && (
-        <div className="mx-auto mt-4 max-w-3xl px-4">
+        <div className="mx-auto mt-5 max-w-3xl px-4">
           <ErrorBox title={error.title} message={error.message} retryable={error.retryable} onRetry={error.retry} />
         </div>
       )}
 
-      {screen === "setup" && <Setup initial={materials} onGenerate={generate} />}
-      {screen === "generating" && (
-        <Spinner label="Writing your 10-question quiz…"
-          sub="Viva is reading the manual and your code to write questions that test recall. This usually takes 20–60 seconds with a live model." />
-      )}
-      {screen === "quiz" && quiz && (
-        <QuizView key={quiz.quiz_id} quiz={quiz} answers={answers} setAnswers={setAnswers} submitting={busy} onSubmit={submit} />
-      )}
-      {screen === "results" && results && (
-        <ResultsView results={results} busy={busy} onRetake={retake}
-          onNewQuiz={() => materials && generate(materials)} onStartOver={() => { setScreen("setup"); top(); }} />
-      )}
+      <main>
+        {screen === "setup" && <Setup initial={materials} onGenerate={generate} />}
+        {screen === "generating" && <Generating />}
+        {screen === "quiz" && quiz && (
+          <QuizView key={quiz.quiz_id} quiz={quiz} answers={answers} setAnswers={setAnswers} submitting={busy} onSubmit={submit} />
+        )}
+        {screen === "results" && results && (
+          <ResultsView results={results} busy={busy} onRetake={retake}
+            onNewQuiz={() => materials && generate(materials)} onStartOver={() => { setScreen("setup"); top(); }} />
+        )}
+      </main>
     </div>
   );
 }

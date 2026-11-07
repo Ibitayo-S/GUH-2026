@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { AnswerSheet } from "../components/AnswerSheet";
 import { SourceBadge } from "../components/Bits";
 import { CodeView } from "../components/CodeView";
 import { inline } from "../components/Rich";
 import type { Quiz } from "../types";
-import { LETTERS, rangesLabel, TYPE_LABEL } from "../util";
+import { expand, LETTERS, rangesLabel, TYPE_LABEL } from "../util";
 
 export function QuizView({ quiz, answers, setAnswers, submitting, onSubmit }: {
   quiz: Quiz; answers: (number | null)[]; setAnswers: (a: (number | null)[]) => void; submitting: boolean; onSubmit: () => void;
@@ -13,22 +14,24 @@ export function QuizView({ quiz, answers, setAnswers, submitting, onSubmit }: {
   const [confirming, setConfirming] = useState(false);
   const q = quiz.questions[i];
   const n = quiz.questions.length;
-  const unanswered = answers.filter((a) => a === null).length;
+  const answered = answers.filter((a) => a !== null).length;
 
   useEffect(() => { setShowCode(false); }, [i]);
 
-  const choose = (k: number) => {
+  const choose = (row: number, k: number) => {
     const next = [...answers];
-    next[i] = k;
+    next[row] = next[row] === k ? null : k;   // tap again to rub it out
     setAnswers(next);
     setConfirming(false);
   };
+  const trySubmit = () => (answered < n && !confirming ? setConfirming(true) : onSubmit());
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "TEXTAREA" || (e.target as HTMLElement)?.tagName === "INPUT") return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
       const k = "1234".indexOf(e.key) >= 0 ? Number(e.key) - 1 : "abcd".indexOf(e.key.toLowerCase());
-      if (k >= 0 && k < q.choices.length) choose(k);
+      if (k >= 0 && k < q.choices.length) choose(i, k);
       if (e.key === "ArrowRight" && i < n - 1) setI(i + 1);
       if (e.key === "ArrowLeft" && i > 0) setI(i - 1);
     };
@@ -37,77 +40,78 @@ export function QuizView({ quiz, answers, setAnswers, submitting, onSubmit }: {
   });
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-black">{quiz.title}</h1>
-        <span className="ml-auto"><SourceBadge source={quiz.source} model={quiz.model} /></span>
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+        <h1 className="display-wide text-2xl md:text-[1.75rem]">{quiz.title}</h1>
+        <SourceBadge source={quiz.source} model={quiz.model} />
       </div>
-      <p className="mt-1 text-sm font-semibold text-slate-500">
-        Answer from memory. You'll see the right answers and explanations after you submit.
-      </p>
+      <p className="mt-1.5 text-[0.95rem] text-muted">Answer from memory. Nothing is marked until you hand in the sheet.</p>
 
-      {/* progress */}
-      <div className="mt-4 flex gap-1.5" aria-label="Questions">
-        {quiz.questions.map((_, k) => (
-          <button key={k} onClick={() => setI(k)} aria-label={`Question ${k + 1}${answers[k] !== null ? ", answered" : ""}`}
-            className={`h-9 flex-1 rounded-lg text-sm font-black transition ${k === i ? "bg-brand-600 text-white shadow-[0_3px_0_0_var(--color-brand-800)]"
-              : answers[k] !== null ? "bg-brand-100 text-brand-800" : "bg-white text-slate-400 ring-2 ring-[#ece9f5]"}`}>
-            {k + 1}
-          </button>
-        ))}
-      </div>
-
-      <div key={q.number} className="card pop-in mt-5 p-5 md:p-6">
-        <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400">
-          <span>Question {i + 1} of {n}</span><span>·</span><span>{TYPE_LABEL[q.type]}</span>
-        </div>
-        <h2 className="text-[1.2rem] font-extrabold leading-snug">{inline(q.question)}</h2>
-
-        {q.code && (
-          <div className="mt-3">
-            <button className="text-sm font-bold text-brand-700 hover:underline" onClick={() => setShowCode((s) => !s)}>
-              {showCode ? "Hide" : "Show"} your code ({q.code.file}, {rangesLabel(q.code.lines)})
-            </button>
-            {showCode && <div className="mt-2"><CodeView code={q.code.text} raw dense /></div>}
+      <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_300px] lg:items-start">
+        {/* question */}
+        <article key={q.number} className="rise sheet min-w-0 p-5 md:p-7">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="form-label">Question {i + 1} of {n}</span>
+            <span className="form-label !text-muted">{TYPE_LABEL[q.type]}</span>
           </div>
-        )}
+          <h2 className="mt-3 font-display text-[1.3rem] font-bold leading-snug md:text-[1.45rem]" style={{ fontStretch: "96%" }}>
+            {inline(q.question)}
+          </h2>
 
-        <div className="mt-4 grid gap-2.5" role="radiogroup" aria-label="Options">
-          {q.choices.map((c, k) => {
-            const on = answers[i] === k;
-            return (
-              <button key={k} role="radio" aria-checked={on} onClick={() => choose(k)}
-                className={`flex items-start gap-3 rounded-2xl border-2 px-4 py-3 text-left font-bold transition ${on
-                  ? "border-brand-500 bg-brand-50 text-brand-900 shadow-[0_3px_0_0_var(--color-brand-200)]"
-                  : "border-[#e4e0ef] bg-white hover:border-brand-200 hover:bg-[#fbfaff]"}`}>
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 text-sm font-black ${on ? "border-brand-600 bg-brand-600 text-white" : "border-[#e4e0ef] text-slate-500"}`}>{LETTERS[k]}</span>
-                <span className="pt-0.5">{inline(c)}</span>
+          {q.code && (
+            <div className="mt-4">
+              <button className="link text-[0.9rem]" aria-expanded={showCode} onClick={() => setShowCode((s) => !s)}>
+                {showCode ? "Hide" : "Show"} {q.code.file}, {rangesLabel(q.code.lines)}
               </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-5 flex items-center gap-2">
-          <button className="btn btn-ghost !py-2" disabled={i === 0} onClick={() => setI(i - 1)}>← Back</button>
-          {i < n - 1 ? (
-            <button className="btn btn-primary ml-auto !py-2" onClick={() => setI(i + 1)}>{answers[i] === null ? "Skip for now →" : "Next →"}</button>
-          ) : (
-            <button className="btn btn-primary ml-auto !py-2" disabled={submitting} onClick={() => (unanswered && !confirming ? setConfirming(true) : onSubmit())}>
-              {submitting ? "Marking…" : "Submit quiz"}
-            </button>
-          )}
-        </div>
-        {confirming && unanswered > 0 && (
-          <div className="pop-in mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900 ring-2 ring-amber-200">
-            {unanswered} question{unanswered === 1 ? " is" : "s are"} unanswered and will count as wrong.
-            <div className="mt-2 flex gap-2">
-              <button className="btn btn-ghost !py-1 text-sm" onClick={() => { setConfirming(false); setI(answers.findIndex((a) => a === null)); }}>Go to the first one</button>
-              <button className="btn btn-primary !py-1 text-sm" disabled={submitting} onClick={onSubmit}>Submit anyway</button>
+              {showCode && <div className="rise mt-2"><CodeView code={q.code.text} raw cited={expand(q.code.lines)} /></div>}
             </div>
+          )}
+
+          <div className="mt-6 space-y-2" role="radiogroup" aria-label={`Options for question ${i + 1}`}>
+            {q.choices.map((c, k) => {
+              const on = answers[i] === k;
+              return (
+                <button key={k} role="radio" aria-checked={on} onClick={() => choose(i, k)}
+                  className={`group flex w-full items-start gap-3.5 rounded-[5px] border px-3.5 py-3 text-left transition ${on
+                    ? "border-ink/60 bg-paper" : "border-rule hover:border-form/60 hover:bg-form-tint/30"}`}>
+                  <span className={`bubble mt-px shrink-0 ${on ? "filled pop" : "group-hover:bg-form-tint"}`} style={{ width: 26, height: 26, fontSize: 12.5 }}>
+                    {LETTERS[k]}
+                  </span>
+                  <span className="pt-0.5 text-[1rem] leading-snug">{inline(c)}</span>
+                </button>
+              );
+            })}
           </div>
-        )}
+
+          <div className="mt-6 flex items-center gap-2 border-t border-rule pt-4">
+            <button className="btn btn-ghost !py-2" disabled={i === 0} onClick={() => setI(i - 1)}>Previous</button>
+            {i < n - 1
+              ? <button className="btn btn-primary ml-auto !py-2" onClick={() => setI(i + 1)}>{answers[i] === null ? "Skip for now" : "Next question"}</button>
+              : <button className="btn btn-primary ml-auto !py-2" disabled={submitting} onClick={trySubmit}>{submitting ? "Marking…" : "Hand in answers"}</button>}
+          </div>
+        </article>
+
+        {/* the answer sheet */}
+        <aside className="lg:sticky lg:top-20">
+          <AnswerSheet rows={n} answers={answers} current={i} onRow={setI} onPick={(r, k) => { choose(r, k); setI(r); }} />
+          <div className="mt-3 flex items-center justify-between text-[0.9rem]">
+            <span className="text-muted"><span className="font-semibold text-ink">{answered}</span> of {n} answered</span>
+            <button className="btn btn-primary !px-4 !py-2 text-[0.92rem]" disabled={submitting} onClick={trySubmit}>
+              {submitting ? "Marking…" : "Hand in answers"}
+            </button>
+          </div>
+          {confirming && answered < n && (
+            <div className="rise mt-3 rounded-[5px] border border-amber-300 bg-amber-50 p-3 text-[0.9rem]">
+              <p><span className="font-semibold">{n - answered} left blank.</span> Blank answers are marked wrong.</p>
+              <div className="mt-2 flex gap-2">
+                <button className="btn btn-ghost !px-3 !py-1.5 text-sm" onClick={() => { setConfirming(false); setI(answers.findIndex((a) => a === null)); }}>Go to first blank</button>
+                <button className="btn btn-primary !px-3 !py-1.5 text-sm" disabled={submitting} onClick={onSubmit}>Hand in anyway</button>
+              </div>
+            </div>
+          )}
+          <p className="mt-4 hidden text-[0.8rem] text-muted lg:block">Keys: 1–4 to answer, ← → to move. Tap a filled circle again to clear it.</p>
+        </aside>
       </div>
-      <p className="mt-3 text-center text-xs font-semibold text-slate-400">Tip: press 1–4 to choose an option and ← → to move between questions.</p>
     </div>
   );
 }

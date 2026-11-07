@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { AnswerSheet } from "../components/AnswerSheet";
 import type { CodeFileIn, ManualIn, QuizRequest } from "../types";
 import { fileToBase64 } from "../util";
 
 const MANUAL_ACCEPT = ".pdf,.md,.markdown,.txt";
 const CODE_ACCEPT = ".py,.java,.c,.h,.cpp,.cc,.hpp,.js,.mjs,.ts,.tsx,.jsx,.kt,.rs,.go,.cs,.rb,.php,.swift,.scala,.sql,.sh,.r,.m,.hs,.txt";
 const MAX_FILE = 10_000_000;
+const lineCount = (t: string) => t.replace(/\n+$/, "").split("\n").length;
+const PREVIEW = [0, 2, null, 1, 3, null, 0, null, null, null];
 
 export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; onGenerate: (req: QuizRequest) => void }) {
   const [manual, setManual] = useState<ManualIn | null>(initial?.manual ?? null);
-  const [manualPaste, setManualPaste] = useState(initial?.manual?.text && !initial.manual.filename ? initial.manual.text : "");
+  const [manualPaste, setManualPaste] = useState("");
   const [files, setFiles] = useState<CodeFileIn[]>(initial?.code_files ?? []);
   const [codePaste, setCodePaste] = useState("");
   const [pasteName, setPasteName] = useState("solution.py");
@@ -18,7 +21,7 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
   const manualRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { api.example().then(setExample).catch(() => { /* example is optional */ }); }, []);
+  useEffect(() => { api.example().then(setExample).catch(() => { /* the example is optional */ }); }, []);
 
   async function addManual(file?: File) {
     setError(null);
@@ -27,7 +30,7 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
     if (file.name.toLowerCase().endsWith(".pdf")) setManual({ filename: file.name, pdf_base64: await fileToBase64(file) });
     else {
       const text = await file.text();
-      if (text.includes("\u0000")) return setError("That manual doesn't look like a text, Markdown or PDF file.");
+      if (text.includes("\u0000")) return setError("That manual isn't a PDF, Markdown or text file.");
       setManual({ filename: file.name, text });
     }
     setManualPaste("");
@@ -38,9 +41,9 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
     if (!list) return;
     const added: CodeFileIn[] = [];
     for (const f of Array.from(list)) {
-      if (f.size > 300_000) { setError(`${f.name} is over 300 KB, so it was skipped.`); continue; }
+      if (f.size > 300_000) { setError(`${f.name} is over 300 KB, so it wasn't added.`); continue; }
       const text = await f.text();
-      if (text.includes("\u0000")) { setError(`${f.name} doesn't look like a text file, so it was skipped.`); continue; }
+      if (text.includes("\u0000")) { setError(`${f.name} isn't a text file, so it wasn't added.`); continue; }
       added.push({ filename: f.name, text });
     }
     setFiles((cur) => [...cur.filter((c) => !added.some((a) => a.filename === c.filename)), ...added]);
@@ -56,10 +59,10 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
     const code = [...files];
     if (codePaste.trim()) {
       const name = pasteName.trim() || "solution.txt";
-      if (code.some((c) => c.filename === name)) { setError(`You already have a file called ${name}. Rename the pasted code.`); return null; }
+      if (code.some((c) => c.filename === name)) { setError(`There's already a file called ${name}. Rename the pasted code.`); return null; }
       code.push({ filename: name, text: codePaste });
     }
-    if (!m && !code.length) { setError("Add your lab manual and your code first."); return null; }
+    if (!m && !code.length) { setError("Add the lab manual and your code first."); return null; }
     return { manual: m, code_files: code };
   }
 
@@ -67,87 +70,113 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
   const hasCode = files.length > 0 || !!codePaste.trim();
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:py-10">
-      <div className="max-w-3xl">
-        <span className="inline-flex rounded-full bg-brand-50 px-3 py-1 text-xs font-black uppercase tracking-wider text-brand-700">Active recall for your labs</span>
-        <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight md:text-[2.5rem]">
-          Upload a lab manual and your code. <span className="text-brand-600">Get a 10-question quiz</span> that makes you recall what you learned.
-        </h1>
-        <p className="mt-3 font-semibold text-slate-600">
-          Answer all ten from memory, with no hints along the way. Then see your score, the right answers and exactly where each one comes from in the manual or your code. Retake the ones you missed.
-        </p>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 md:pt-14">
+      <section className="grid items-center gap-10 lg:grid-cols-[1fr_300px]">
+        <div className="rise">
+          <p className="form-label">Active recall for lab work</p>
+          <h1 className="display-wide mt-3 text-[2.2rem] leading-[1.05] md:text-[3.1rem]">
+            Turn your lab into a ten&#8209;question recall test.
+          </h1>
+          <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-ink/80">
+            Upload the lab manual and the code you wrote. Answer ten questions from memory, then get the sheet back
+            marked, with every answer traced to a section of the manual or a line of your own code.
+          </p>
+        </div>
+        <div className="hidden lg:block" aria-hidden>
+          <div className="rotate-[1.5deg]">
+            <AnswerSheet rows={10} answers={PREVIEW} compact label="Your answer sheet" />
+          </div>
+        </div>
+      </section>
 
-      <div className="mt-7 grid gap-5 lg:grid-cols-2">
+      <section className="mt-12 grid gap-5 lg:grid-cols-2" aria-label="Lab materials">
         {/* manual */}
-        <section className="card p-5">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-sm font-black text-white">1</span>
-            <h2 className="text-lg font-black">Lab manual</h2>
-            <span className="ml-auto text-xs font-bold text-slate-400">PDF, Markdown or text</span>
+        <div className="sheet p-5">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-xl font-extrabold">Lab manual</h2>
+            <span className="form-label">PDF · Markdown · text</span>
           </div>
           {manual ? (
-            <div className="mt-4 flex items-center gap-3 rounded-xl bg-brand-50 px-3 py-3 ring-2 ring-brand-100">
-              <span className="text-2xl" aria-hidden>📄</span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-extrabold">{manual.filename ?? "Pasted manual"}</div>
-                <div className="text-xs font-semibold text-slate-500">{manual.pdf_base64 ? "PDF: the text is extracted on the server" : `${(manual.text ?? "").length.toLocaleString()} characters`}</div>
-              </div>
-              <button className="text-sm font-bold text-brand-700 hover:underline" onClick={() => setManual(null)}>Remove</button>
-            </div>
+            <FileRow name={manual.filename ?? "Pasted manual"}
+              detail={manual.pdf_base64 ? "PDF: text is extracted when you generate" : `${(manual.text ?? "").length.toLocaleString()} characters`}
+              onRemove={() => setManual(null)} />
           ) : (
             <>
-              <button className="btn btn-soft mt-4 w-full" onClick={() => manualRef.current?.click()}>⬆ Upload the manual</button>
-              <div className="my-2 text-center text-xs font-bold text-slate-400">or paste it</div>
-              <textarea value={manualPaste} onChange={(e) => setManualPaste(e.target.value)} rows={9} aria-label="Lab manual text"
-                placeholder="Paste the lab instructions here…"
-                className="w-full resize-y rounded-xl border-2 border-[#e4e0ef] bg-[#fbfaff] p-3 text-sm font-semibold outline-none focus:border-brand-400 focus:bg-white" />
+              <DropButton label="Choose the manual" hint="or drop it here" onClick={() => manualRef.current?.click()}
+                onDrop={(f) => addManual(f[0])} />
+              <textarea value={manualPaste} onChange={(e) => setManualPaste(e.target.value)} rows={7} aria-label="Paste the lab manual"
+                placeholder="…or paste the lab instructions"
+                className="mt-3 w-full resize-y rounded-[4px] border border-rule bg-paper/60 p-3 text-[0.92rem] outline-none focus:border-form focus:bg-sheet" />
             </>
           )}
           <input ref={manualRef} type="file" accept={MANUAL_ACCEPT} className="hidden" onChange={(e) => { addManual(e.target.files?.[0]); e.target.value = ""; }} />
-        </section>
+        </div>
 
         {/* code */}
-        <section className="card p-5">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-sm font-black text-white">2</span>
-            <h2 className="text-lg font-black">Your code</h2>
-            <span className="ml-auto text-xs font-bold text-slate-400">One or more files · never run</span>
+        <div className="sheet p-5">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-xl font-extrabold">Your code</h2>
+            <span className="form-label">Read as text · never run</span>
           </div>
-          <button className="btn btn-soft mt-4 w-full" onClick={() => codeRef.current?.click()}>⬆ Upload code files</button>
+          {files.map((f) => (
+            <FileRow key={f.filename} name={f.filename} mono detail={`${lineCount(f.text)} lines`}
+              onRemove={() => setFiles((cur) => cur.filter((c) => c !== f))} />
+          ))}
+          <DropButton label={files.length ? "Add more files" : "Choose code files"} hint="or drop them here" onClick={() => codeRef.current?.click()}
+            onDrop={(f) => { const dt = new DataTransfer(); f.forEach((x) => dt.items.add(x)); addCode(dt.files); }} />
           <input ref={codeRef} type="file" multiple accept={CODE_ACCEPT} className="hidden" onChange={(e) => { addCode(e.target.files); e.target.value = ""; }} />
-          {files.length > 0 && (
-            <ul className="mt-3 space-y-1.5">
-              {files.map((f) => (
-                <li key={f.filename} className="flex items-center gap-2 rounded-lg bg-[#fbfaff] px-3 py-1.5 ring-2 ring-[#ece9f5]">
-                  <span className="font-mono text-sm font-semibold">{f.filename}</span>
-                  <span className="text-xs font-semibold text-slate-400">{f.text.replace(/\n+$/, "").split("\n").length} lines</span>
-                  <button className="ml-auto text-xs font-bold text-brand-700 hover:underline" onClick={() => setFiles((cur) => cur.filter((c) => c !== f))}>Remove</button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="my-2 text-center text-xs font-bold text-slate-400">or paste it</div>
-          <input value={pasteName} onChange={(e) => setPasteName(e.target.value)} aria-label="File name for pasted code"
-            className="mb-1.5 w-full rounded-lg border-2 border-[#e4e0ef] px-3 py-1.5 font-mono text-sm outline-none focus:border-brand-400" />
-          <textarea value={codePaste} onChange={(e) => setCodePaste(e.target.value)} rows={files.length ? 4 : 7} spellCheck={false} aria-label="Pasted code"
-            placeholder="Paste your code here…"
-            className="w-full resize-y rounded-xl border-2 border-[#e4e0ef] bg-[#fbfaff] p-3 font-mono text-[0.8rem] outline-none focus:border-brand-400 focus:bg-white" />
-        </section>
-      </div>
+          <div className="mt-3 overflow-hidden rounded-[4px] border border-rule bg-paper/60 focus-within:border-form focus-within:bg-sheet">
+            <input value={pasteName} onChange={(e) => setPasteName(e.target.value)} aria-label="File name for pasted code"
+              className="w-full border-b border-rule bg-transparent px-3 py-1.5 font-mono text-[0.8rem] text-muted outline-none" />
+            <textarea value={codePaste} onChange={(e) => setCodePaste(e.target.value)} rows={files.length ? 3 : 6} spellCheck={false}
+              aria-label="Paste your code" placeholder="…or paste your code"
+              className="w-full resize-y bg-transparent p-3 font-mono text-[0.8rem] outline-none" />
+          </div>
+        </div>
+      </section>
 
-      {error && <p className="mt-4 font-bold text-rose-700">{error}</p>}
+      {error && <p className="mt-4 font-semibold text-redpen" role="alert">{error}</p>}
 
-      <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-        <button className="btn btn-primary !px-8 !py-3.5 text-lg" disabled={!hasManual && !hasCode} onClick={() => { const r = build(); if (r) onGenerate(r); }}>
-          Generate my 10-question quiz →
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button className="btn btn-primary !px-7 !py-3 text-[1.05rem]" disabled={!hasManual && !hasCode}
+          onClick={() => { const r = build(); if (r) onGenerate(r); }}>
+          Generate quiz
         </button>
         <button className="btn btn-ghost" disabled={!example} onClick={useExample}>Use the example lab</button>
-        <span className="text-sm font-semibold text-slate-400 sm:ml-2">
-          {hasManual && hasCode ? "Manual + code: the best mix of questions." : hasManual ? "Add your code too for code-reading and debugging questions." : hasCode ? "Add the manual too for questions on the lab's concepts." : ""}
+        <span className="text-[0.9rem] text-muted sm:ml-2">
+          {hasManual && hasCode ? "Questions will come from both the manual and your code."
+            : hasManual ? "Add your code for code-reading and debugging questions."
+            : hasCode ? "Add the manual for questions on the lab's concepts." : "Quizzes stay in this browser session only."}
         </span>
       </div>
-      <p className="mt-6 text-xs font-semibold text-slate-400">🔒 Your code is read as text and never run. Quizzes live only in this session.</p>
     </div>
+  );
+}
+
+function FileRow({ name, detail, mono, onRemove }: { name: string; detail: string; mono?: boolean; onRemove: () => void }) {
+  return (
+    <div className="rise mt-4 flex items-center gap-3 rounded-[4px] border border-form/30 bg-form-tint/50 px-3 py-2.5">
+      <svg width="16" height="20" viewBox="0 0 16 20" aria-hidden className="shrink-0 text-form">
+        <path d="M1 1h9l5 5v13H1z" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M10 1v5h5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+      <div className="min-w-0 flex-1">
+        <div className={`truncate font-semibold ${mono ? "font-mono text-[0.88rem]" : ""}`}>{name}</div>
+        <div className="text-[0.8rem] text-muted">{detail}</div>
+      </div>
+      <button className="link text-[0.85rem]" onClick={onRemove}>Remove</button>
+    </div>
+  );
+}
+
+function DropButton({ label, hint, onClick, onDrop }: { label: string; hint: string; onClick: () => void; onDrop: (files: File[]) => void }) {
+  const [over, setOver] = useState(false);
+  return (
+    <button type="button" onClick={onClick}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); onDrop(Array.from(e.dataTransfer.files)); }}
+      className={`mt-4 flex w-full flex-col items-center rounded-[4px] border-[1.5px] border-dashed px-4 py-5 transition ${over ? "border-form bg-form-tint" : "border-form/45 hover:border-form hover:bg-form-tint/40"}`}>
+      <span className="font-display font-bold text-form-deep" style={{ fontStretch: "92%" }}>{label}</span>
+      <span className="text-[0.82rem] text-muted">{hint}</span>
+    </button>
   );
 }

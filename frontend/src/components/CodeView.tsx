@@ -16,10 +16,10 @@ function highlight(line: string): ReactNode[] {
     if (m.index > last) out.push(line.slice(last, m.index));
     const [tok, comment, str, word, num] = m;
     const k = m.index;
-    if (comment) out.push(<span key={k} className="italic text-slate-400">{tok}</span>);
-    else if (str) out.push(<span key={k} className="text-emerald-700">{tok}</span>);
-    else if (word && KEYWORDS.has(word)) out.push(<span key={k} className="font-semibold text-brand-700">{tok}</span>);
-    else if (num) out.push(<span key={k} className="text-amber-700">{tok}</span>);
+    if (comment) out.push(<span key={k} className="italic text-muted">{tok}</span>);
+    else if (str) out.push(<span key={k} className="text-[#8a4b0f]">{tok}</span>);
+    else if (word && KEYWORDS.has(word)) out.push(<span key={k} className="font-semibold text-form-deep">{tok}</span>);
+    else if (num) out.push(<span key={k} className="text-[#7a3f8f]">{tok}</span>);
     else out.push(tok);
     last = m.index + tok.length;
   }
@@ -28,25 +28,31 @@ function highlight(line: string): ReactNode[] {
 }
 
 /**
- * Read-only code. With `raw`, the text is a server excerpt whose lines look like "  12 | code"
- * (or "   … |" for a gap); otherwise lines are numbered from 1.
+ * Read-only code listing. With `raw`, the text is a server excerpt whose lines look like "  12 | code"
+ * (or "   … |" for a gap). `cited` line numbers get a highlighter stroke.
  */
-export function CodeView({ code, raw, dense }: { code: string; raw?: boolean; dense?: boolean }) {
+export function CodeView({ code, raw, cited = [] }: { code: string; raw?: boolean; cited?: number[] }) {
   const rows = useMemo(() => code.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n").map((line, i) => {
     if (!raw) return { n: String(i + 1), text: line };
     const m = line.match(/^\s*(\d+|…) \| ?(.*)$/);
     return m ? { n: m[1], text: m[2] } : { n: "", text: line };
   }), [code, raw]);
+  const citedSet = new Set(cited.map(String));
 
   return (
-    <div className="overflow-auto rounded-xl border-2 border-[#ece9f5] bg-[#fbfaff] font-mono" style={{ fontSize: dense ? "0.78rem" : "0.84rem" }}>
+    <div className="overflow-auto rounded-[4px] border border-rule bg-[#fbfcfa] font-mono text-[0.8rem] leading-[1.6]">
       <div className="min-w-max py-1.5">
-        {rows.map((r, i) => (
-          <div key={i} className="flex">
-            <span className="w-12 shrink-0 select-none pr-3 text-right tabular-nums text-slate-400">{r.n}</span>
-            <span className="whitespace-pre pr-4">{r.n === "…" ? "" : r.text.length ? highlight(r.text) : " "}</span>
-          </div>
-        ))}
+        {rows.map((r, i) => {
+          const on = citedSet.has(r.n);
+          return (
+            <div key={i} className="flex">
+              <span className={`w-11 shrink-0 select-none border-r border-rule pr-2.5 text-right tabular-nums ${on ? "font-semibold text-ink" : "text-muted/70"}`}>{r.n}</span>
+              <span className="whitespace-pre pl-3 pr-4">
+                {r.n === "…" ? "" : <span className={on ? "bg-hl/70 [box-decoration-break:clone] px-0.5 -mx-0.5" : ""}>{r.text.length ? highlight(r.text) : " "}</span>}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -14,6 +14,12 @@ export const TYPE_LABEL: Record<QuestionType, string> = {
 
 export const LETTERS = ["A", "B", "C", "D", "E"];
 
+export function expand(rs: LineRange[]): number[] {
+  const out: number[] = [];
+  for (const r of rs) for (let i = r.start; i <= r.end; i++) out.push(i);
+  return out;
+}
+
 export async function fileToBase64(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let binary = "";
