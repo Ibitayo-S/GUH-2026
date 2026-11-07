@@ -1,4 +1,4 @@
-# GUH 2026: Viva (Ibi, temmulain, Uzair)
+# GUH 2026: Viva
 
 > Upload a lab manual and your code. Get a 10-question quiz that makes you recall what you learned.
 
