@@ -10,6 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+from pydantic import BaseModel
+
+import llm
 from analyzer import Analysis
 from lab import Lab
 from models import CheckResult, CheckView, LessonView, TraceView
@@ -113,6 +116,36 @@ def apply(state: LessonState, lab: Lab, action: str, choice: Optional[str],
     else:
         raise LessonError(f"Unsupported action {action!r}.")
     return state
+
+
+class _YourCode(BaseModel):
+    body: str
+
+
+YOUR_CODE_SYSTEM = """You are the Coach in Viva, a supportive tutor. In 2-4 short sentences, connect the concept the
+student just learned to THEIR code. Refer to specific line numbers from the numbered code. Be accurate: marking visited
+on dequeue causes duplicate queue entries and extra work, but does not by itself make the returned path wrong.
+Do not rewrite their whole solution. Use `backticks` for code. Plain text otherwise."""
+
+
+def personalise_your_code(state: LessonState, lab: Lab, analysis: Analysis, code: str) -> Optional[str]:
+    """Live-model version of the 'your code' step. Returns None (authored template is used) on any problem."""
+    lesson = lab.lesson(state.concept_id)
+    variant = next((f for f in analysis.flags if f in lesson.your_code), "default")
+    authored = lesson.your_code[variant].format_map(_Default(analysis.role_text()))
+    numbered = "\n".join(f"{i:>3}: {line}" for i, line in enumerate(code.splitlines(), start=1))
+    user = (f"Concept: {lab.concept(state.concept_id).label} ({lab.concept(state.concept_id).description})\n"
+            f"Relevant lines: {analysis.lines_for(state.concept_id, lesson.your_code[variant])}\n"
+            f"Static-analysis note (trusted): {authored}\n\nStudent code:\n{numbered[:6000]}")
+    out = llm.call_json(_YourCode, YOUR_CODE_SYSTEM, user, temperature=0.3)
+    if out is None:
+        return None
+    body = out.body.strip()
+    lines = set(analysis.lines_for(state.concept_id, lesson.your_code[variant]))
+    # Guardrail: it must point at at least one real highlighted line, and stay short.
+    if not body or len(body) > 900 or not any(f"{n}" in body for n in lines):
+        return None
+    return body
 
 
 def _controls(state: LessonState) -> list[str]:

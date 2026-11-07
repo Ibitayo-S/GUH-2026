@@ -116,6 +116,8 @@ class Session:
                            if self.attempts.get(cid) else "Welcome back. Have a go at your question.")
             return
         self.lesson = lessons.apply(self.lesson, self.lab, action, choice, self.checks)
+        if self.lesson.kind == "your_code" and self.lesson.your_code_text is None and llm.available():
+            self.lesson.your_code_text = lessons.personalise_your_code(self.lesson, self.lab, self.analysis, self.code)
         self.notice = None
 
     def retry(self) -> None:
