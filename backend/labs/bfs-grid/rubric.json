@@ -1,0 +1,172 @@
+{
+  "queue_fifo": {
+    "levels": {
+      "2": "Explains that popleft() serves the oldest cell first, so BFS explores in order of distance, and that pop() would turn it into a depth-first search that may not find the shortest path.",
+      "1": "Knows pop() changes the order or that BFS uses a queue, but doesn't explain why the order matters for distance.",
+      "0": "Wrong, missing, or thinks pop() and popleft() behave the same."
+    },
+    "key_points": [
+      {
+        "id": "fifo_order",
+        "core": true,
+        "label": "Oldest cell is served first (FIFO)",
+        "keywords": ["first in", "fifo", "oldest", "order they were added", "order it was added", "front of the queue", "from the front", "level by level", "layer by layer", "closest first", "nearest first", "breadth"],
+        "hint": "Say which end of the queue popleft() takes from, and what that means for the order cells are explored."
+      },
+      {
+        "id": "stack_dfs",
+        "core": true,
+        "label": "pop() makes it a stack / depth-first",
+        "keywords": ["dfs", "depth", "stack", "lifo", "last in", "newest", "most recent", "dive", "deep", "other end", "from the end", "the back"],
+        "hint": "Describe what kind of search you get if the newest cell is always explored next."
+      },
+      {
+        "id": "distance",
+        "label": "Order matters for shortest distance",
+        "keywords": ["distance", "fewest steps", "shortest", "number of steps", "closer", "not the shortest", "longer path", "longer route"],
+        "hint": "Connect the exploration order to finding the path with the fewest steps."
+      }
+    ],
+    "misconceptions": [
+      {
+        "id": "no_difference",
+        "keywords": ["same result", "no difference", "doesn't matter", "does not matter", "nothing changes", "nothing would change", "same thing"],
+        "explanation": "pop() removes the newest item, so the queue becomes a stack and the search goes depth-first. The order changes completely."
+      }
+    ],
+    "feedback": {
+      "2": "Spot on: popleft() keeps BFS exploring outward one step at a time.",
+      "1": "You're close. The missing piece is why the order matters.",
+      "0": "Not quite yet. The key is which end of the queue the next cell comes from."
+    },
+    "strength": "You can explain why BFS needs a first-in, first-out queue.",
+    "next_step": "Trace BFS by hand on a 5-node graph twice, once with popleft() and once with pop(), and write down the order cells are explored in each.",
+    "examples": [
+      {"score": 2, "answer": "popleft takes the oldest cell so we explore level by level; pop would make it a stack, so it goes depth-first and might not find the shortest path."},
+      {"score": 2, "answer": "FIFO means cells closer to the start come out first. With pop() it's LIFO, a DFS, and the first path found could be longer."},
+      {"score": 1, "answer": "pop would take from the other end so the order would be different."},
+      {"score": 1, "answer": "BFS uses a queue and DFS uses a stack."},
+      {"score": 0, "answer": "Nothing would change, it would still work the same."},
+      {"score": 0, "answer": "It would be faster."}
+    ]
+  },
+  "visited_set": {
+    "levels": {
+      "2": "Explains that marking on dequeue lets the same cell be appended more than once while it waits in the queue, and that the cost is duplicate entries and extra work, fixed by marking when appending.",
+      "1": "Knows the visited set prevents revisits or that duplicates happen, but doesn't explain when to mark or what it costs.",
+      "0": "Wrong, missing, or believes a cell can never be added twice."
+    },
+    "key_points": [
+      {
+        "id": "duplicates",
+        "core": true,
+        "label": "The same cell can be queued more than once",
+        "keywords": ["twice", "two times", "multiple times", "more than once", "several times", "duplicate", "added again", "appended again", "re-add", "readd", "two copies", "same cell again", "both add", "both append"],
+        "hint": "Think about what each of the two neighbours does when it is popped, before X itself has been popped."
+      },
+      {
+        "id": "mark_on_enqueue",
+        "core": true,
+        "label": "Mark when appending, not when popping",
+        "keywords": ["when it is added", "when it's added", "when added", "when appending", "when you append", "when it is appended", "when appended", "when enqueu", "on enqueue", "when it's pushed", "when pushed", "mark it before", "before it is popped", "before popping", "at the time it is added", "as soon as it is added", "move the add", "move visited.add"],
+        "hint": "Say where visited.add(...) should go so a cell can join the queue only once."
+      },
+      {
+        "id": "prevents_revisit",
+        "label": "Visited set stops re-exploring cells",
+        "keywords": ["going back", "go back", "revisit", "we've seen", "already seen", "infinite loop", "loop forever", "cycles", "explore it again"],
+        "hint": "Good: that's what the set is for. Now say when a cell should be marked."
+      },
+      {
+        "id": "cost",
+        "label": "Cost: extra work and memory (path still correct)",
+        "keywords": ["extra work", "wasted", "waste", "slower", "memory", "bigger queue", "larger queue", "queue grows", "inefficient", "redundant", "performance", "more work"],
+        "hint": "Say what the duplicates actually cost. Is the answer wrong, or is it just more work?"
+      }
+    ],
+    "misconceptions": [
+      {
+        "id": "never_twice",
+        "keywords": ["skips it", "skip it", "won't be added", "will not be added", "can't be added", "cannot be added", "only added once", "nothing happens"],
+        "explanation": "X isn't marked until it is popped, so while it waits in the queue the check before append doesn't stop a second neighbour from adding it again."
+      },
+      {
+        "id": "wrong_path",
+        "keywords": ["wrong path", "wrong answer", "incorrect path", "not the shortest", "longer path", "breaks the result"],
+        "explanation": "In this code the path is still a shortest one, because each entry carries its own path and the goal is checked on pop. The real cost is duplicate entries and wasted work."
+      }
+    ],
+    "feedback": {
+      "2": "Exactly right: mark on append and each cell joins the queue once.",
+      "1": "Partly there. Think about when the cell gets marked, and what the duplicates cost.",
+      "0": "Not quite. A cell waiting in the queue isn't marked yet, so what stops it being added again?"
+    },
+    "strength": "You understand when to mark a cell as visited and why it matters.",
+    "next_step": "Move visited.add(...) next to queue.append(...), then count how many times queue.append runs on a 10x10 empty grid before and after the change.",
+    "examples": [
+      {"score": 2, "answer": "X gets appended twice because it's only marked when popped, so the queue has duplicates and does extra work. Marking it when you append fixes it."},
+      {"score": 2, "answer": "Both neighbours add X since it isn't visited yet, so it's in the queue more than once. The path is still right but it wastes memory; add to visited when appending."},
+      {"score": 1, "answer": "X might be added more than once."},
+      {"score": 1, "answer": "The visited set stops us from going back to cells we've seen."},
+      {"score": 0, "answer": "It skips it because it's already visited, so nothing happens."},
+      {"score": 0, "answer": "I think it's fine."}
+    ]
+  },
+  "shortest_path_guarantee": {
+    "levels": {
+      "2": "Explains that BFS explores cells in order of distance (all 1-step, then all 2-step...), so the first time the goal is reached no shorter path can exist, and notes this relies on every step costing the same.",
+      "1": "Says BFS explores level by level or finds the shortest path, without explaining why the first arrival must be shortest.",
+      "0": "Wrong, missing, or thinks BFS compares all paths."
+    },
+    "key_points": [
+      {
+        "id": "distance_order",
+        "core": true,
+        "label": "Explores in order of distance",
+        "keywords": ["level", "layer", "ring", "ripple", "wave", "in order of distance", "by distance", "increasing distance", "closest first", "nearest first", "fewer steps first", "one step at a time", "all 1-step", "all one step"],
+        "hint": "Describe the order BFS explores cells in, in terms of distance from the start."
+      },
+      {
+        "id": "first_arrival",
+        "core": true,
+        "label": "First arrival means no shorter path is left",
+        "keywords": ["first time", "first reach", "reached first", "first arrival", "before any longer", "shorter path would", "would have been found", "would have reached", "already been explored", "already found", "earlier"],
+        "hint": "Explain why a shorter path, if one existed, would have reached the goal earlier."
+      },
+      {
+        "id": "claims_shortest",
+        "label": "States BFS finds a shortest path",
+        "keywords": ["shortest path", "shortest route", "fewest steps", "minimum steps"],
+        "hint": "That's the claim. Now explain why the first arrival must be shortest."
+      },
+      {
+        "id": "unweighted",
+        "label": "Every step costs the same",
+        "keywords": ["unweighted", "every step costs", "each step costs", "each move costs", "equal cost", "same cost", "cost one", "weight", "dijkstra"],
+        "hint": "Mention what would break the guarantee, for example moves with different costs."
+      }
+    ],
+    "misconceptions": [
+      {
+        "id": "compares_paths",
+        "keywords": ["checks all paths", "tries every path", "tries all paths", "compares all", "compares the paths", "minimum of all", "all possible paths"],
+        "explanation": "BFS never compares whole paths. The exploration order alone makes the first arrival the shortest."
+      }
+    ],
+    "feedback": {
+      "2": "Great reasoning: distance order is exactly why first arrival is shortest.",
+      "1": "Good start. Now explain why the first arrival can't be beaten.",
+      "0": "Not yet. Think about the order in which BFS reaches cells."
+    },
+    "strength": "You can justify why BFS returns a shortest path.",
+    "next_step": "Write a one-paragraph proof that BFS's first arrival is shortest, then name one change to the grid (weighted moves) that would break it.",
+    "examples": [
+      {"score": 2, "answer": "BFS explores layer by layer, so all paths of length k come out before k+1. The first time the goal is popped, any shorter path would have been found earlier. This works because every step costs the same."},
+      {"score": 2, "answer": "Cells come out in increasing distance, so the first arrival at the goal is shortest; a shorter path would have reached it first. With weighted edges you'd need Dijkstra."},
+      {"score": 1, "answer": "Because BFS goes level by level."},
+      {"score": 1, "answer": "BFS always finds the shortest path."},
+      {"score": 0, "answer": "Because it checks all paths and picks the minimum."},
+      {"score": 0, "answer": "Not sure, it just returns it."}
+    ]
+  }
+}

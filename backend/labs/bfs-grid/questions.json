@@ -1,0 +1,13 @@
+{
+  "queue_fifo": {
+    "default": "Line {pop_line} takes the next cell with `popleft()`. What would change if it used `pop()` instead, and why does BFS need first-in, first-out order?",
+    "uses_pop": "Line {pop_line} takes the next cell with `pop()`, which removes the newest item. In what order will your search explore cells, and will the first path it finds always be the shortest?"
+  },
+  "visited_set": {
+    "default": "Lines {visited_lines} use a visited set. Why does BFS need one, and does it matter whether a cell is marked when it is added to the queue or when it is taken out?",
+    "visited_on_dequeue": "Line {add_line} marks a cell as visited only after it is popped on line {pop_line}. Suppose two cells already in the queue are both next to the same unvisited cell X. What happens to X on line {append_line}, and does it matter?"
+  },
+  "shortest_path_guarantee": {
+    "default": "Line {goal_line} returns the path the first time the goal comes out of the queue. Why is that path guaranteed to be a shortest one on this grid?"
+  }
+}

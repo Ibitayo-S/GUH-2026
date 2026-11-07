@@ -1,0 +1,56 @@
+{
+  "visited_set": [
+    {
+      "label": "Weak answer",
+      "answer": "It just skips X because it's already visited, so nothing happens.",
+      "score": 0,
+      "evidence": "It just skips X because it's already visited",
+      "misconception": "Believes a cell can't be queued twice. X isn't marked until it's popped, so a second neighbour can still append it.",
+      "message": "Not quite. X is waiting in the queue but hasn't been marked yet, so nothing stops a second neighbour adding it again."
+    },
+    {
+      "label": "Strong answer",
+      "answer": "X gets appended twice, because it's only marked visited when it's popped. The path is still shortest, but the queue has duplicates and does extra work. Marking it when I append fixes that.",
+      "score": 2,
+      "evidence": "X gets appended twice, because it's only marked visited when it's popped.",
+      "misconception": null,
+      "message": "Exactly right: the duplicates cost work, not correctness, and marking on append removes them."
+    }
+  ],
+  "queue_fifo": [
+    {
+      "label": "Weak answer",
+      "answer": "pop would take from the other end so the order would be different.",
+      "score": 1,
+      "evidence": "pop would take from the other end so the order would be different.",
+      "misconception": null,
+      "message": "You're close: the order does change. Now say what kind of search that becomes and why it matters for the shortest path."
+    },
+    {
+      "label": "Strong answer",
+      "answer": "popleft takes the oldest cell, so BFS explores level by level. pop() would make it a stack, so the search goes depth-first and might not find the shortest path.",
+      "score": 2,
+      "evidence": "pop() would make it a stack, so the search goes depth-first",
+      "misconception": null,
+      "message": "Spot on: FIFO keeps BFS spreading out one step at a time."
+    }
+  ],
+  "shortest_path_guarantee": [
+    {
+      "label": "Weak answer",
+      "answer": "Because BFS always finds the shortest path.",
+      "score": 1,
+      "evidence": "Because BFS always finds the shortest path.",
+      "misconception": null,
+      "message": "That's the claim, but why is it true? Explain why the first arrival can't be beaten."
+    },
+    {
+      "label": "Strong answer",
+      "answer": "BFS explores layer by layer, so every shorter path is popped before a longer one. The first time the goal comes out, a shorter path would already have reached it. That works because every step costs the same.",
+      "score": 2,
+      "evidence": "The first time the goal comes out, a shorter path would already have reached it.",
+      "misconception": null,
+      "message": "Great reasoning: distance order is exactly why the first arrival is shortest."
+    }
+  ]
+}

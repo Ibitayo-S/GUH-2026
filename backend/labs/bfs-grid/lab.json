@@ -1,0 +1,25 @@
+{
+  "id": "bfs-grid",
+  "title": "Lab 4: Shortest path on a grid with BFS",
+  "summary": "Return the shortest path between two cells on a grid with walls, or None if the goal can't be reached.",
+  "concepts": [
+    {
+      "id": "queue_fifo",
+      "label": "FIFO queue",
+      "description": "Why BFS takes cells from the front of a queue (first in, first out).",
+      "prereqs": []
+    },
+    {
+      "id": "visited_set",
+      "label": "Visited set",
+      "description": "Marking cells so each one enters the queue at most once.",
+      "prereqs": ["queue_fifo"]
+    },
+    {
+      "id": "shortest_path_guarantee",
+      "label": "Shortest-path guarantee",
+      "description": "Why the first time BFS reaches the goal is a shortest path on an unweighted grid.",
+      "prereqs": ["queue_fifo", "visited_set"]
+    }
+  ]
+}
