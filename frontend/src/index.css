@@ -48,7 +48,8 @@ body {
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border-radius: 6px;
   padding: .7rem 1.15rem; font-family: var(--font-display); font-stretch: 92%; font-weight: 700; font-size: .98rem;
-  border: 1.5px solid transparent; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
+  border: 1.5px solid transparent; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s;
+  white-space: nowrap; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-primary { background: var(--color-form); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--color-form-deep); }

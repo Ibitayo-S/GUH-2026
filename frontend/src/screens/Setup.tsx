@@ -6,11 +6,16 @@ import { fileToBase64 } from "../util";
 
 const MANUAL_ACCEPT = ".pdf,.md,.markdown,.txt";
 const CODE_ACCEPT = ".py,.java,.c,.h,.cpp,.cc,.hpp,.js,.mjs,.ts,.tsx,.jsx,.kt,.rs,.go,.cs,.rb,.php,.swift,.scala,.sql,.sh,.r,.m,.hs,.txt";
-const MAX_FILE = 10_000_000;
+// Hosting limits request bodies to ~4.5 MB and base64 adds a third, so keep PDFs under 3 MB.
+const MAX_FILE = 3_000_000;
 const lineCount = (t: string) => t.replace(/\n+$/, "").split("\n").length;
 const PREVIEW = [0, 2, null, 1, 3, null, 0, null, null, null];
 
-export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; onGenerate: (req: QuizRequest) => void }) {
+export function Setup({ initial, onGenerate, apiKey, setApiKey, serverHasKey }: {
+  initial: QuizRequest | null; onGenerate: (req: QuizRequest) => void;
+  apiKey: string; setApiKey: (k: string) => void; serverHasKey: boolean;
+}) {
+  const [showKey, setShowKey] = useState(false);
   const [manual, setManual] = useState<ManualIn | null>(initial?.manual ?? null);
   const [manualPaste, setManualPaste] = useState("");
   const [files, setFiles] = useState<CodeFileIn[]>(initial?.code_files ?? []);
@@ -26,7 +31,7 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
   async function addManual(file?: File) {
     setError(null);
     if (!file) return;
-    if (file.size > MAX_FILE) return setError("That manual is over 10 MB. Upload just this lab's section.");
+    if (file.size > MAX_FILE) return setError("That manual is over 3 MB. Upload just this lab's section, or paste its text.");
     if (file.name.toLowerCase().endsWith(".pdf")) setManual({ filename: file.name, pdf_base64: await fileToBase64(file) });
     else {
       const text = await file.text();
@@ -56,11 +61,11 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
 
   function build(): QuizRequest | null {
     const m: ManualIn | null = manual ?? (manualPaste.trim() ? { filename: null, text: manualPaste } : null);
-    const code = [...files];
+    let code = [...files];
     if (codePaste.trim()) {
       const name = pasteName.trim() || "solution.txt";
-      if (code.some((c) => c.filename === name)) { setError(`There's already a file called ${name}. Rename the pasted code.`); return null; }
-      code.push({ filename: name, text: codePaste });
+      // The newer paste replaces an earlier file of the same name (e.g. a paste kept from a previous attempt).
+      code = [...code.filter((c) => c.filename !== name), { filename: name, text: codePaste }];
     }
     if (!m && !code.length) { setError("Add the lab manual and your code first."); return null; }
     return { manual: m, code_files: code };
@@ -134,6 +139,27 @@ export function Setup({ initial, onGenerate }: { initial: QuizRequest | null; on
           </div>
         </div>
       </section>
+
+      {!serverHasKey && (
+        <section className="sheet mt-5 p-5" aria-label="Anthropic API key">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-display text-lg font-extrabold">Your Anthropic API key <span className="font-sans text-[0.9rem] font-normal text-muted">(optional)</span></h2>
+            <span className="form-label">Only for your own materials</span>
+          </div>
+          <p className="mt-1 text-[0.92rem] text-ink/80">
+            The example lab works without a key. To generate a quiz from your own manual and code, paste your key. It's sent
+            only with your generate request, used for that one call, and never stored on the server. It stays in this tab
+            and is forgotten when you close it.
+          </p>
+          <div className="mt-3 flex max-w-xl gap-2">
+            <input type={showKey ? "text" : "password"} value={apiKey} onChange={(e) => setApiKey(e.target.value.trim())}
+              placeholder="sk-ant-…" autoComplete="off" spellCheck={false} aria-label="Anthropic API key"
+              className="min-w-0 flex-1 rounded-[4px] border border-rule bg-paper/60 px-3 py-2 font-mono text-[0.85rem] outline-none focus:border-form focus:bg-sheet" />
+            <button type="button" className="btn btn-ghost !px-3 !py-2 text-sm" onClick={() => setShowKey((s) => !s)}>{showKey ? "Hide" : "Show"}</button>
+            {apiKey && <button type="button" className="btn btn-ghost !px-3 !py-2 text-sm" onClick={() => setApiKey("")}>Clear</button>}
+          </div>
+        </section>
+      )}
 
       {error && <p className="mt-4 font-semibold text-redpen" role="alert">{error}</p>}
 

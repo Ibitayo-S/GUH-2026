@@ -1,10 +1,15 @@
-"""Viva quiz API. Run from backend/:  uvicorn main:app --reload --port 8000"""
+"""Viva quiz API.
+
+Local:   cd backend && uvicorn main:app --reload --port 8000
+Vercel:  api/index.py imports `app` from here (see vercel.json). The API is stateless, so it suits serverless.
+"""
 from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,9 +22,11 @@ from materials import MaterialsError
 from models import Quiz, QuizRequest, Results, SubmitRequest
 
 logging.basicConfig(level=logging.INFO)
-app = FastAPI(title="Viva", version="3.0")
+app = FastAPI(title="Viva", version="3.1")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                    allow_methods=["*"], allow_headers=["*"])
+
+KEY_HEADER = "X-Anthropic-Api-Key"
 
 
 def _err(status: int, detail: str, retryable: bool) -> JSONResponse:
@@ -51,17 +58,11 @@ async def _value(_: Request, e: ValueError):
     return _err(422, str(e), False)
 
 
-def _get(quiz_id: str):
-    try:
-        return quiz.get(quiz_id)
-    except KeyError:
-        raise HTTPException(404, "Quiz not found. The server may have restarted; please generate it again.")
-
-
 @app.get("/api/health")
 def health():
     live = config.live_enabled()
-    return {"ok": True, "live": live, "model": config.model() if live else None, "demo_forced": config.demo_forced()}
+    return {"ok": True, "live": live, "model": config.model(), "demo_forced": config.demo_forced(),
+            "accepts_user_key": not config.demo_forced()}
 
 
 @app.get("/api/example")
@@ -71,28 +72,21 @@ def example():
 
 
 @app.post("/api/quizzes", response_model=Quiz)
-def create_quiz(req: QuizRequest):
-    return quiz.create(req)
+def create_quiz(req: QuizRequest, x_anthropic_api_key: Optional[str] = Header(default=None)):
+    return quiz.create(req, api_key=x_anthropic_api_key)
 
 
-@app.get("/api/quizzes/{quiz_id}", response_model=Quiz)
-def get_quiz(quiz_id: str):
-    return quiz.public(_get(quiz_id))
+@app.post("/api/quizzes/submit", response_model=Results)
+def submit(req: SubmitRequest):
+    return quiz.submit(req.token, req.answers)
 
 
-@app.post("/api/quizzes/{quiz_id}/submit", response_model=Results)
-def submit(quiz_id: str, req: SubmitRequest):
-    _get(quiz_id)
-    return quiz.submit(quiz_id, req.answers)
+@app.post("/api/quizzes/retake", response_model=Quiz)
+def retake(req: SubmitRequest):
+    return quiz.retake(req.token, req.answers)
 
 
-@app.post("/api/quizzes/{quiz_id}/retake", response_model=Quiz)
-def retake(quiz_id: str):
-    _get(quiz_id)
-    return quiz.retake(quiz_id)
-
-
-# Serve the built frontend (npm run build) so the app can run from one port.
+# Local one-port mode: serve the built frontend (npm run build). On Vercel the CDN serves it instead.
 _DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if (_DIST / "index.html").is_file():
     app.mount("/", StaticFiles(directory=_DIST, html=True), name="frontend")

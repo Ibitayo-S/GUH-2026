@@ -6,16 +6,19 @@ export class ApiError extends Error {
   }
 }
 
-async function call<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
+async function call<T>(path: string, body?: unknown, method = "POST", headers: Record<string, string> = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError(0, "Can't reach the Viva server. Is the backend running on port 8000?", true);
+    throw new ApiError(0, "Can't reach the Viva server. Check your connection and try again.", true);
+  }
+  if (res.status === 413) {
+    throw new ApiError(413, "Those materials are too large to upload. Try a smaller PDF, or paste just this lab's section.", false);
   }
   if (!res.ok) {
     let detail = res.statusText;
@@ -31,9 +34,14 @@ async function call<T>(path: string, body?: unknown, method = "POST"): Promise<T
   return res.json() as Promise<T>;
 }
 
+export interface Health { live: boolean; model: string; demo_forced: boolean; accepts_user_key: boolean }
+
 export const api = {
+  health: () => call<Health>("/health", undefined, "GET"),
   example: () => call<{ manual: ManualIn; code_files: CodeFileIn[] }>("/example", undefined, "GET"),
-  create: (req: QuizRequest) => call<Quiz>("/quizzes", req),
-  submit: (id: string, answers: (number | null)[]) => call<Results>(`/quizzes/${id}/submit`, { answers }),
-  retake: (id: string) => call<Quiz>(`/quizzes/${id}/retake`),
+  // A visitor's own Anthropic key travels only in this request's header; the server never stores it.
+  create: (req: QuizRequest, apiKey?: string) =>
+    call<Quiz>("/quizzes", req, "POST", apiKey ? { "X-Anthropic-Api-Key": apiKey } : {}),
+  submit: (quiz: Quiz, answers: (number | null)[]) => call<Results>("/quizzes/submit", { token: quiz.token, answers }),
+  retake: (quiz: Quiz, answers: (number | null)[]) => call<Quiz>("/quizzes/retake", { token: quiz.token, answers }),
 };

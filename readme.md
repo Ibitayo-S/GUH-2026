@@ -50,7 +50,8 @@ Set these in your environment or in a `.env` file in the repo root (see [`.env.e
 | `VIVA_MODEL` | `claude-sonnet-5-5` | Model ID (same default as `backend/parse.py`) |
 | `VIVA_EFFORT` | `medium` | Model effort: `low` is faster, `high` writes more careful distractors |
 | `VIVA_TIMEOUT` | `180` | Seconds before a generation request gives up |
-| `VIVA_DEMO` | unset | `1` ignores the key and serves the example lab's prewritten quiz (e.g. on unreliable Wi-Fi) |
+| `VIVA_DEMO` | unset | `1` ignores all keys and serves the example lab's prewritten quiz (e.g. on unreliable Wi-Fi) |
+| `VIVA_SECRET` | dev value | Encrypts each quiz's answer key. **Set a long random string in production** |
 
 **Note:** if `ANTHROPIC_API_KEY` is set in your user environment, the backend uses it automatically and runs in live mode. Each quiz is one model call, or two if the first output fails validation.
 
@@ -58,33 +59,59 @@ Set these in your environment or in a `.env` file in the repo root (see [`.env.e
 
 | Mode | When | Behaviour |
 |---|---|---|
-| **Live** (badge: *AI generated · model*) | A key is set and `VIVA_DEMO` isn't | Generates a quiz for **any** manual + code |
-| **Demo** (badge: *Demo · prewritten quiz*) | No key (or `VIVA_DEMO=1`) **and** the materials are the built-in example lab (*Use the example lab*) | Serves a hand-written 10-question quiz for that lab. Nothing is generated |
-| **No model** | No key, other materials | Clear message that a model is needed. Viva never fakes a quiz |
+| **Live, server key** (badge: *AI-written · model*) | `ANTHROPIC_API_KEY` set on the server | Generates a quiz for **any** manual + code |
+| **Live, visitor's key** | No server key; the visitor pastes their own key in the app | Generates a quiz for their materials using **their** key |
+| **Demo** (badge: *Demo · prewritten quiz*) | No server key, and the example lab (*Use the example lab*) | Serves a hand-written 10-question quiz for that lab. Nothing is generated, and no key is used even if one was pasted |
+| **Needs a key** | No server key, no visitor key, other materials | Clear message asking for a key. Viva never fakes a quiz |
+
+### Bring your own key
+When the server has no key, the setup screen shows an optional **Anthropic API key** field:
+- The key is kept in that browser tab only (`sessionStorage`), so it's gone when the tab closes.
+- It's sent only as the `X-Anthropic-Api-Key` header of the generate request, over HTTPS when deployed.
+- The server uses it for that single call and never stores it, logs it, echoes it back or puts it in the quiz token.
+- The example lab never uses it.
+
+## Deploy on Vercel
+
+The backend is stateless, so it runs as a Vercel Python function. Each quiz's answer key travels with the student as an encrypted token (Fernet, keyed by `VIVA_SECRET`) instead of being kept in server memory. The frontend is served as static files.
+
+Files: [`vercel.json`](vercel.json) (build, routing, function timeout), [`api/index.py`](api/index.py) (exposes the FastAPI app), [`requirements.txt`](requirements.txt) (runtime Python packages), [`.vercelignore`](.vercelignore).
+
+1. In Vercel: **Add New → Project → Import** `Ibitayo-S/GUH-2026`. Leave **Root Directory** as the repo root and **Framework Preset** as *Other*. `vercel.json` sets the build.
+2. **Environment Variables**, Production:
+   - `VIVA_SECRET`: required. Use any long random string, e.g. the output of `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+   - `ANTHROPIC_API_KEY`: leave **unset** to have visitors bring their own key, or set it to pay for every quiz yourself.
+3. **Deploy.** Every push to `main` redeploys automatically.
+
+Vercel limits:
+- **Request size:** request bodies are capped at 4.5 MB, so the app limits PDF manuals to 3 MB.
+- **Function time:** quiz generation can take up to ~60 s. `vercel.json` allows 300 s, which Vercel's current Hobby plan supports with Fluid Compute. If your plan rejects it, lower `maxDuration` and set `VIVA_EFFORT=low`.
 
 ## How it works
 
 ```
 frontend/ (React + TypeScript + Vite + Tailwind)        backend/ (FastAPI + Pydantic)
   Setup: manual (PDF/MD/TXT or paste) + code files        main.py       routes: /api/quizzes, /submit, /retake, /example
-  Quiz: one question at a time, no feedback              materials.py  PDF text extraction (PyMuPDF), size checks, numbering
-  Results: score, review topics, answers + sources       prompts.py    quiz prompt (adapted from backend/prompt.txt)
-  api.ts / types.ts  ← typed contract →                  llm.py        the only model call: Anthropic Messages API, structured output
-                                                         quiz.py       validation, option shuffling, storage, marking, retakes
+         + optional own API key                          materials.py  PDF text extraction (PyMuPDF), size checks, numbering
+  Quiz: answer sheet, no feedback until hand-in          prompts.py    quiz prompt (adapted from backend/prompt.txt)
+  Results: red-pen marked sheet, answers + sources       llm.py        the only model call: Anthropic Messages API, structured output
+  api.ts / types.ts  ← typed contract →                  quiz.py       validation, shuffling, encrypted quiz tokens, marking, retakes
                                                          demo_lab.py   example lab manual + code + prewritten quiz
+api/index.py  → Vercel entry point for backend/main.py
 ```
 
 - **Generation:** one `client.beta.messages.parse` call with the `QuizOut` Pydantic schema. The manual and the numbered code files go in the prompt. Server-side refusal fallbacks (`fallbacks: "default"`) are enabled.
 - **Validation:** each question needs exactly 4 distinct options, compared exactly so `'sat'` and `'Sat'` count as different, plus a valid correct option. Code line references are checked against the uploaded file: out-of-range ones are dropped, overlong ones clamped. If fewer than 10 questions survive, Viva retries once and tells the model what was wrong; after that it returns a retryable error.
-- **Fairness:** options are shuffled on the server, so the answer isn't always "A", and correct answers are only sent after submission.
+- **Fairness:** options are shuffled on the server, so the answer isn't always "A". The answer key travels inside an encrypted, tamper-proof token, so the browser can't read it before submitting or forge a different one.
 - **Grounding rules** in the prompt: answerable from the materials, no trivia, plausible distractors based on real misconceptions, never claim to have run the code, label hypothetical changes as hypothetical.
 
 ### API
 | Route | Body | Returns |
 |---|---|---|
-| `POST /api/quizzes` | `{manual: {filename, text \| pdf_base64}, code_files: [{filename, text}]}` | Quiz (no answers) · 422 bad input · 503 no model · 502 model error (`retryable`) |
-| `POST /api/quizzes/{id}/submit` | `{answers: [index \| null] × n}` | Results (answers revealed) |
-| `POST /api/quizzes/{id}/retake` | none | New quiz with only the missed questions (409 before submitting or if all correct) |
+| `POST /api/quizzes` | `{manual: {filename, text \| pdf_base64}, code_files: [{filename, text}]}`, optional header `X-Anthropic-Api-Key` | Quiz with `token` (no answers) · 422 bad input · 503 needs a key · 502 model error (`retryable`) |
+| `POST /api/quizzes/submit` | `{token, answers: [index \| null] × n}` | Results (answers revealed) · 409 expired or invalid token |
+| `POST /api/quizzes/retake` | `{token, answers}` | New quiz with only the missed questions (409 if all correct) |
+| `GET /api/health` | none | `{live, model, demo_forced, accepts_user_key}` |
 | `GET /api/example` | none | The example lab's manual and code |
 
 ## Tests
@@ -93,9 +120,11 @@ frontend/ (React + TypeScript + Vite + Tailwind)        backend/ (FastAPI + Pyda
 cd backend
 pytest -q
 ```
-16 tests, run without network:
+19 tests, run without network:
 - **Demo quiz:** has 10 questions, hides the answers and shuffles the options;
-- **Marking:** scores, reveals the answers and is idempotent; retakes contain only the missed questions;
+- **Tokens:** the answer key is encrypted, and tampered tokens are rejected;
+- **Your own key:** a visitor's key is used for that request only (never echoed or stored), the example lab never spends it, and `VIVA_DEMO` ignores it;
+- **Marking:** scores and reveals the answers; retakes contain only the missed questions;
 - **Bad input:** bad submissions and bad materials are rejected; no-key mode is honest;
 - **Live path (stubbed model):** validation and grounding; retry and give-up on bad output; invalid questions dropped and case-distinct options kept; retryable errors;
 - **PDF manuals:** text is extracted;
@@ -103,11 +132,12 @@ pytest -q
 
 ## Known limitations
 
-- **Demo mode only knows the example lab.** Other materials need a key.
-- **Live generation** was exercised with real calls during development (on the earlier explainer version), and the quiz path is covered with a stubbed model. Model-written questions can still be imperfect; the sources shown with each answer let students check them.
+- **Demo mode only knows the example lab.** Other materials need a key (the server's, or the visitor's own).
+- **Live generation** has been used with real quizzes, and the tests cover it with a stubbed model. Model-written questions can still be imperfect; the sources shown with each answer let students check them.
+- **Bring-your-own-key trust:** visitors have to trust whoever runs the deployment with their key for that one request. The code never stores it, but a modified deployment could.
 - **Scanned PDFs** (images without a text layer) can't be read. Paste the text instead.
 - **Size limits:** the manual is limited to 300,000 characters and the code to 200,000 characters (up to 20 files).
-- **In-memory storage:** restarting the backend loses open quizzes.
+- **Quiz lifetime:** quiz tokens expire after 7 days, and changing `VIVA_SECRET` invalidates any open quizzes.
 - **Out of scope:** accounts, progress across sessions, and spaced repetition.
 
 ## Other code in this repo

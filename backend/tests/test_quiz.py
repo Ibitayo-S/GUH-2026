@@ -17,8 +17,15 @@ def make(client, body, status=200):
     return r.json()
 
 
-def correct_answers(quiz_id):
-    return [q.correct_index for q in Q.get(quiz_id).questions]
+def correct_answers(qz):
+    """Peek at the answer key inside the encrypted token (tests only)."""
+    return [q["correct_index"] for q in Q._open(qz["token"])["questions"]]
+
+
+def submit(client, qz, answers, status=200):
+    r = client.post("/api/quizzes/submit", json={"token": qz["token"], "answers": answers})
+    assert r.status_code == status, r.text
+    return r.json()
 
 
 # ---------------------------------------------------------------- demo mode
@@ -40,56 +47,88 @@ def test_demo_options_are_shuffled(client):
     first_positions = set()
     for _ in range(6):
         qz = make(client, EXAMPLE)
-        first_positions.update(correct_answers(qz["quiz_id"]))
+        first_positions.update(correct_answers(qz))
     assert len(first_positions) > 1  # the correct option isn't always "A"
+
+
+def test_token_hides_answers_and_cannot_be_tampered_with(client):
+    qz = make(client, EXAMPLE)
+    assert "correct_index" not in qz["token"] and "explanation" not in qz["token"]  # encrypted, not just encoded
+    tampered = qz["token"][:-6] + ("A" if qz["token"][-6] != "A" else "B") + qz["token"][-5:]
+    r = client.post("/api/quizzes/submit", json={"token": tampered, "answers": [0] * 10})
+    assert r.status_code == 409 and "Generate a new one" in r.json()["detail"]
 
 
 def test_submit_scores_and_reveals_everything(client):
     qz = make(client, EXAMPLE)
-    key = correct_answers(qz["quiz_id"])
+    key = correct_answers(qz)
     answers = key[:7] + [(key[7] + 1) % 4, (key[8] + 1) % 4, None]
-    res = client.post(f"/api/quizzes/{qz['quiz_id']}/submit", json={"answers": answers}).json()
+    res = submit(client, qz, answers)
     assert res["score"] == 7 and res["total"] == 10 and res["unanswered"] == 1 and res["can_retake"]
     row = res["questions"][7]
     assert row["correct"] is False and row["chosen_index"] == answers[7] and row["correct_index"] == key[7]
     assert row["explanation"] and row["source_ref"]
     assert sum(c for c, _ in res["by_type"].values()) == 7
     assert res["review_topics"] and all(t["correct"] < t["total"] for t in res["review_topics"])
-    # Submitting again returns the same marked result.
-    again = client.post(f"/api/quizzes/{qz['quiz_id']}/submit", json={"answers": [0] * 10}).json()
-    assert again["score"] == 7
 
 
 def test_retake_contains_only_missed_questions(client):
     qz = make(client, EXAMPLE)
-    key = correct_answers(qz["quiz_id"])
+    key = correct_answers(qz)
     answers = [k if i % 2 == 0 else None for i, k in enumerate(key)]
-    client.post(f"/api/quizzes/{qz['quiz_id']}/submit", json={"answers": answers})
-    rt = client.post(f"/api/quizzes/{qz['quiz_id']}/retake").json()
+    r = client.post("/api/quizzes/retake", json={"token": qz["token"], "answers": answers})
+    rt = r.json()
     assert rt["is_retake"] and rt["title"].startswith("Retake: ") and len(rt["questions"]) == 5
     missed = {qz["questions"][i]["question"] for i in range(1, 10, 2)}
     assert {q["question"] for q in rt["questions"]} == missed
-    rkey = correct_answers(rt["quiz_id"])
-    res = client.post(f"/api/quizzes/{rt['quiz_id']}/submit", json={"answers": rkey}).json()
+    res = submit(client, rt, correct_answers(rt))
     assert res["score"] == 5 and res["can_retake"] is False
-    assert client.post(f"/api/quizzes/{rt['quiz_id']}/retake").status_code == 409
-
-
-def test_retake_before_submit_is_refused(client):
-    qz = make(client, EXAMPLE)
-    assert client.post(f"/api/quizzes/{qz['quiz_id']}/retake").status_code == 409
+    r = client.post("/api/quizzes/retake", json={"token": rt["token"], "answers": correct_answers(rt)})
+    assert r.status_code == 409
 
 
 def test_bad_submissions(client):
     qz = make(client, EXAMPLE)
-    assert client.post(f"/api/quizzes/{qz['quiz_id']}/submit", json={"answers": [0] * 3}).status_code == 422
-    assert client.post(f"/api/quizzes/{qz['quiz_id']}/submit", json={"answers": [9] * 10}).status_code == 422
-    assert client.post("/api/quizzes/nope/submit", json={"answers": []}).status_code == 404
+    submit(client, qz, [0] * 3, status=422)
+    submit(client, qz, [9] * 10, status=422)
+    assert client.post("/api/quizzes/submit", json={"token": "nope", "answers": []}).status_code == 409
 
 
 def test_other_materials_without_key_are_not_faked(client):
     r = client.post("/api/quizzes", json={"manual": {"text": "Lab 1: loops"}, "code_files": [{"filename": "a.py", "text": "for i in range(3): print(i)"}]})
-    assert r.status_code == 503 and "ANTHROPIC_API_KEY" in r.json()["detail"] and r.json()["retryable"] is False
+    assert r.status_code == 503 and "API key" in r.json()["detail"] and r.json()["retryable"] is False
+
+
+def test_visitor_key_is_used_for_that_request_only(client, monkeypatch):
+    """No server key: a key sent in the header enables live generation for that request."""
+    seen = []
+
+    def structured(schema, system, messages, max_tokens=16000, api_key=None):
+        seen.append(api_key)
+        return schema.model_validate(_quiz_json())
+
+    monkeypatch.setattr(llm, "structured", structured)
+    r = client.post("/api/quizzes", json=LIVE_BODY, headers={"X-Anthropic-Api-Key": "  sk-ant-visitor  "})
+    assert r.status_code == 200 and r.json()["source"] == "live" and seen == ["sk-ant-visitor"]
+    assert "sk-ant-visitor" not in r.text   # never echoed back, not even inside the token
+    assert "sk-ant-visitor" not in str(Q._open(r.json()["token"]))
+    # Without the header the same materials are refused again: nothing was remembered.
+    assert client.post("/api/quizzes", json=LIVE_BODY).status_code == 503
+
+
+def test_example_lab_never_spends_a_visitor_key(client, monkeypatch):
+    def structured(*a, **k):
+        raise AssertionError("the example lab must not call the model")
+
+    monkeypatch.setattr(llm, "structured", structured)
+    r = client.post("/api/quizzes", json=EXAMPLE, headers={"X-Anthropic-Api-Key": "sk-ant-visitor"})
+    assert r.status_code == 200 and r.json()["source"] == "demo"
+
+
+def test_demo_forced_ignores_visitor_keys(client, monkeypatch):
+    monkeypatch.setenv("VIVA_DEMO", "1")
+    r = client.post("/api/quizzes", json=LIVE_BODY, headers={"X-Anthropic-Api-Key": "sk-ant-visitor"})
+    assert r.status_code == 503
 
 
 def test_materials_validation(client):
@@ -133,7 +172,7 @@ def live(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     replies, calls = [], []
 
-    def structured(schema, system, messages, max_tokens=16000):
+    def structured(schema, system, messages, max_tokens=16000, api_key=None):
         calls.append((system, messages[0]["content"]))
         r = replies.pop(0)
         if isinstance(r, Exception):

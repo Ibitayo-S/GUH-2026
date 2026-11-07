@@ -76,6 +76,7 @@ class QuizQuestion(BaseModel):
 
 class Quiz(BaseModel):
     quiz_id: str
+    token: str           # encrypted answer key; send it back to submit or retake (the server stores nothing)
     title: str
     source: Source
     model: Optional[str]
@@ -87,7 +88,8 @@ class Quiz(BaseModel):
 # ---------------------------------------------------------------- API: results (answers revealed)
 
 class SubmitRequest(BaseModel):
-    answers: list[Optional[int]]
+    token: str = Field(min_length=1, max_length=2_000_000)
+    answers: list[Optional[int]] = Field(max_length=50)
 
 
 class QuestionResult(BaseModel):

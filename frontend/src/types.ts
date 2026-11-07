@@ -14,7 +14,7 @@ export interface QuizQuestion {
   number: number; type: QuestionType; topic: string; question: string; choices: string[]; code: CodeExcerpt | null;
 }
 export interface Quiz {
-  quiz_id: string; title: string; source: Source; model: string | null; questions: QuizQuestion[];
+  quiz_id: string; token: string; title: string; source: Source; model: string | null; questions: QuizQuestion[];
   is_retake: boolean; materials: Record<string, string>;
 }
 

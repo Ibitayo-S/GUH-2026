@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "./api";
 import { ErrorBox, Generating } from "./components/Bits";
 import { QuizView } from "./screens/QuizView";
@@ -16,6 +16,16 @@ export default function App() {
   const [results, setResults] = useState<Results | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ title: string; message: string; retryable: boolean; retry?: () => void } | null>(null);
+  const [serverHasKey, setServerHasKey] = useState(false);
+  // A visitor's own key lives only in this tab (sessionStorage), never on the server.
+  const [apiKey, setApiKeyState] = useState(() => { try { return sessionStorage.getItem("viva.apiKey") ?? ""; } catch { return ""; } });
+  const setApiKey = (k: string) => {
+    setApiKeyState(k);
+    try { if (k) sessionStorage.setItem("viva.apiKey", k); else sessionStorage.removeItem("viva.apiKey"); } catch { /* storage unavailable */ }
+  };
+
+  // Hide the key field when the server has its own key, or ignores keys (demo forced).
+  useEffect(() => { api.health().then((h) => setServerHasKey(h.live || !h.accepts_user_key)).catch(() => {}); }, []);
 
   const top = () => window.scrollTo({ top: 0 });
 
@@ -33,7 +43,7 @@ export default function App() {
     setScreen("generating");
     top();
     try {
-      startQuiz(await api.create(req));
+      startQuiz(await api.create(req, serverHasKey ? undefined : apiKey || undefined));
     } catch (e) {
       const err = e as ApiError;
       setError({ title: "The quiz couldn't be generated", message: err.message, retryable: err.retryable, retry: () => generate(req) });
@@ -46,7 +56,7 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      setResults(await api.submit(quiz.quiz_id, answers));
+      setResults(await api.submit(quiz, answers));
       setScreen("results");
       top();
     } catch (e) {
@@ -55,10 +65,10 @@ export default function App() {
   }
 
   async function retake() {
-    if (!results) return;
+    if (!results || !quiz) return;
     setBusy(true);
     setError(null);
-    try { startQuiz(await api.retake(results.quiz_id)); }
+    try { startQuiz(await api.retake(quiz, answers)); }
     catch (e) { setError({ title: "The retake couldn't start", message: (e as ApiError).message, retryable: false }); }
     finally { setBusy(false); }
   }
@@ -86,7 +96,9 @@ export default function App() {
       )}
 
       <main>
-        {screen === "setup" && <Setup initial={materials} onGenerate={generate} />}
+        {screen === "setup" && (
+          <Setup initial={materials} onGenerate={generate} apiKey={apiKey} setApiKey={setApiKey} serverHasKey={serverHasKey} />
+        )}
         {screen === "generating" && <Generating />}
         {screen === "quiz" && quiz && (
           <QuizView key={quiz.quiz_id} quiz={quiz} answers={answers} setAnswers={setAnswers} submitting={busy} onSubmit={submit} />
