@@ -1,0 +1,8 @@
+anthropic
+pymupdf
+dotenv
+fastapi
+uvicorn[standard]
+pydantic
+pytest
+httpx

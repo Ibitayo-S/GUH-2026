@@ -1,18 +1,4 @@
-# Python
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-
-# Node
-node_modules/
-dist/
-
-# Secrets
 .env
-
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+venv
+lab-materials
+.claude

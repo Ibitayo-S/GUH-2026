@@ -1,78 +1,91 @@
-# Viva: understand your own code
+# GUH 2026: Viva
 
-> Upload your code. Viva finds where your understanding breaks, teaches the missing idea step by step, then checks that you can apply it.
+> Upload a lab manual and your code. Get a 10-question quiz that makes you recall what you learned.
 
-Viva is a short, private, Duolingo-style viva on a student's **own** submission. It asks about specific lines of their code. When the student is stuck ("I don't understand", or a wrong answer), Viva switches to a guided learning path: a plain-language idea → a tiny code example → a step-by-step queue trace → a common mistake → back to *their* lines → a low-pressure check. Then the student retries the original question. A code-linked report closes the session.
+Viva turns a university programming lab into an **active-recall quiz**. A student uploads the lab manual and the code they wrote for it, and Viva writes **10 multiple-choice questions** from those materials:
 
-It's formative and student-initiated. It is an understanding check, not a cheating detector. Submitted code is **read as text and never executed** (it is only parsed with Python's `ast`).
+- **Concept** questions on the ideas in the manual;
+- **Code reading** questions on what *their* code does and why (citing real line numbers);
+- **Debugging** questions on what would break, or what a change would do.
 
-Built for Reply Student Tech Clash, "AI on Campus" (University of Manchester, 2026).
+The student answers all ten from memory, with **no feedback until they submit**. The correct answers stay on the server until then. After submitting they see:
+- their score, broken down by question type;
+- the topics to review;
+- for every question: the right answer, an explanation, and where it comes from (a manual section, or file and lines with an excerpt).
 
-## Quick start
+**Retake the ones I missed** re-asks only the missed questions with the options reshuffled.
+
+Code is read as text and **never executed**. Quizzes live only in memory (no accounts).
+
+## Setup
 
 Needs Python 3.11+ (tested on 3.14) and Node 20+ (tested on 25).
 
-**Backend** (terminal 1):
+**Backend:**
 ```bash
 cd backend
-python -m venv .venv
-# Windows:  .venv\Scripts\activate      macOS/Linux:  source .venv/bin/activate
+python -m venv venv
+# Windows: venv\Scripts\activate    macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-**Frontend** (terminal 2):
+**Frontend** (in a second terminal):
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Open http://localhost:5173. The Vite dev server proxies `/api` to port 8000.
+Open http://localhost:5173 (Vite proxies `/api` to port 8000).
 
-**One-port option:** run `npm run build` in `frontend/`, then start the backend. FastAPI also serves the built app at http://localhost:8000.
+**One-port option:** run `npm run build` in `frontend/` once; the backend then also serves the app at http://localhost:8000.
 
-## Mock mode vs live model
+## Environment variables
 
-| | Mock mode (default) | Live mode |
+Set these in your environment or in a `.env` file in the repo root (see [`.env.example`](.env.example)). Only the backend reads them; the browser never sees the key.
+
+| Variable | Default | Purpose |
 |---|---|---|
-| Enabled when | no `OPENAI_API_KEY`, or `VIVA_MOCK=1` | `OPENAI_API_KEY` set in `.env` |
-| Questions, lessons, traces, checks | authored (`backend/labs/bfs-grid/*.json`) | same, all authored |
-| Scoring free-text answers | rubric keyword fallback | model (temp 0.2, rubric + labelled examples), falling back on any error |
-| "Back to your code" step | authored template filled with the student's line numbers | model-personalised, must cite a highlighted line or the template is used |
-| Scripted demo answers | planned feedback ("Demo fixture") | same |
+| `ANTHROPIC_API_KEY` | none | Enables **live mode** (`ANTHROPIC_AUTH_TOKEN` also works) |
+| `VIVA_MODEL` | `claude-sonnet-5-5` | Model ID (same default as `backend/parse.py`) |
+| `VIVA_EFFORT` | `medium` | Model effort: `low` is faster, `high` writes more careful distractors |
+| `VIVA_TIMEOUT` | `180` | Seconds before a generation request gives up |
+| `VIVA_DEMO` | unset | `1` ignores the key and serves the example lab's prewritten quiz (e.g. on unreliable Wi-Fi) |
 
-The UI always says where content came from: a **Mock mode** banner and badge, plus per-card labels **AI assessed**, **Fallback scoring**, **Demo fixture** or **Authored content**.
+**Note:** if `ANTHROPIC_API_KEY` is set in your user environment, the backend uses it automatically and runs in live mode. Each quiz is one model call, or two if the first output fails validation.
 
-To go live, copy `.env.example` to `.env` in the repo root, set `OPENAI_API_KEY`, and restart the backend. The key is read only by the backend (`backend/config.py` → `backend/llm.py`) and never reaches the browser. `OPENAI_MODEL` defaults to `gpt-4.1-mini`.
+## Modes
 
-## Demo script (about 3 minutes, works offline)
-
-1. Click **Use sample BFS solution** → **Start my viva**. The sample passes its tests but marks cells visited when they are *dequeued* (line 17).
-2. Viva asks about line 17 vs line 25, highlighted on the left.
-3. Click **I don't understand**. Learning mode starts and it is *not scored*.
-4. **Continue** through: chalk-marks idea → example → walkthrough (step the queue) → the late-marking mistake (watch D get queued twice) → your code (lines 17, 14 and 25).
-5. Answer the check question wrongly. Viva explains why and offers another way of seeing it, then asks a *different* check. Answer it right, then click **Retry my question**.
-6. Use the **Strong answer** presenter chip (or type your own) → feedback with evidence quoted from the answer.
-7. FIFO queue: try the **Weak answer**, then **Try again** with the strong one. For the shortest-path question, try answering "Yes, always" on the stack check to see the **prerequisite detour** to FIFO queues and back.
-8. The report shows strengths, gaps, evidence, the student's lines and one concrete next step each. It includes the fix for line 17, phrased accurately: duplicates and extra work, not a wrong answer.
-
-You can also upload any `.py` file. A BFS that uses `pop()` gets a FIFO-first viva about its own `pop()` line.
+| Mode | When | Behaviour |
+|---|---|---|
+| **Live** (badge: *AI generated · model*) | A key is set and `VIVA_DEMO` isn't | Generates a quiz for **any** manual + code |
+| **Demo** (badge: *Demo · prewritten quiz*) | No key (or `VIVA_DEMO=1`) **and** the materials are the built-in example lab (*Use the example lab*) | Serves a hand-written 10-question quiz for that lab. Nothing is generated |
+| **No model** | No key, other materials | Clear message that a model is needed. Viva never fakes a quiz |
 
 ## How it works
 
 ```
-frontend/ (React + TS + Vite + Tailwind)        backend/ (FastAPI + Pydantic)
-  Submit → Viva → Report                          analyzer.py   ast-only line mapping + findings
-  CodeView (highlighted lines)                    session.py    asking → feedback ⇄ learning → done
-  LessonPanel, QueueTrace, CheckQuestion          lessons.py    guided path + adaptive checks + detour
-  api.ts / types.ts  ← typed contract →           assessor.py   demo match → live model → rubric fallback
-                                                  llm.py        the only model call site; None on any failure
-                                                  labs/bfs-grid/ lab, questions, rubric, lessons, demo answers
+frontend/ (React + TypeScript + Vite + Tailwind)        backend/ (FastAPI + Pydantic)
+  Setup: manual (PDF/MD/TXT or paste) + code files        main.py       routes: /api/quizzes, /submit, /retake, /example
+  Quiz: one question at a time, no feedback              materials.py  PDF text extraction (PyMuPDF), size checks, numbering
+  Results: score, review topics, answers + sources       prompts.py    quiz prompt (adapted from backend/prompt.txt)
+  api.ts / types.ts  ← typed contract →                  llm.py        the only model call: Anthropic Messages API, structured output
+                                                         quiz.py       validation, option shuffling, storage, marking, retakes
+                                                         demo_lab.py   example lab manual + code + prewritten quiz
 ```
 
-- **Contract:** [`docs/CONTRACT.md`](docs/CONTRACT.md), `backend/models.py` and `frontend/src/types.ts` (keep all three in sync).
-- **Lab content lives in data files**, not prompts: `lab.json` (3 concepts and prerequisites), `questions.json`, `rubric.json` (levels, key points, misconceptions, labelled calibration examples), `lessons.json` (steps, traces, checks, alternative explanations), `demo_answers.json`.
-- **Adaptivity:** the first concept is where the code suggests understanding may break (for example, visited-on-dequeue → Visited set). A wrong check → targeted explanation + an alternative explanation + a different check. A wrong check that reveals a prerequisite gap → optional detour, then back.
+- **Generation:** one `client.beta.messages.parse` call with the `QuizOut` Pydantic schema. The manual and the numbered code files go in the prompt. Server-side refusal fallbacks (`fallbacks: "default"`) are enabled.
+- **Validation:** each question needs exactly 4 distinct options, compared exactly so `'sat'` and `'Sat'` count as different, plus a valid correct option. Code line references are checked against the uploaded file: out-of-range ones are dropped, overlong ones clamped. If fewer than 10 questions survive, Viva retries once and tells the model what was wrong; after that it returns a retryable error.
+- **Fairness:** options are shuffled on the server, so the answer isn't always "A", and correct answers are only sent after submission.
+- **Grounding rules** in the prompt: answerable from the materials, no trivia, plausible distractors based on real misconceptions, never claim to have run the code, label hypothetical changes as hypothetical.
+
+### API
+| Route | Body | Returns |
+|---|---|---|
+| `POST /api/quizzes` | `{manual: {filename, text \| pdf_base64}, code_files: [{filename, text}]}` | Quiz (no answers) · 422 bad input · 503 no model · 502 model error (`retryable`) |
+| `POST /api/quizzes/{id}/submit` | `{answers: [index \| null] × n}` | Results (answers revealed) |
+| `POST /api/quizzes/{id}/retake` | none | New quiz with only the missed questions (409 before submitting or if all correct) |
+| `GET /api/example` | none | The example lab's manual and code |
 
 ## Tests
 
@@ -80,13 +93,23 @@ frontend/ (React + TS + Vite + Tailwind)        backend/ (FastAPI + Pydantic)
 cd backend
 pytest -q
 ```
-The tests cover the data validation, the full guided flow end to end without a key, the prerequisite detour, typed "I don't know" not being scored, rubric calibration (every labelled example scores as labelled), and the live-model paths with a stubbed model (valid output used and labelled; timeouts, bad scores or unquoted evidence fall back).
+16 tests, run without network:
+- **Demo quiz:** has 10 questions, hides the answers and shuffles the options;
+- **Marking:** scores, reveals the answers and is idempotent; retakes contain only the missed questions;
+- **Bad input:** bad submissions and bad materials are rejected; no-key mode is honest;
+- **Live path (stubbed model):** validation and grounding; retry and give-up on bad output; invalid questions dropped and case-distinct options kept; retryable errors;
+- **PDF manuals:** text is extracted;
+- **Real client:** connection errors are reported in plain language.
 
-## Known limits
+## Known limitations
 
-- One lab (BFS on a grid) and three concepts: `queue_fifo`, `visited_set`, `shortest_path_guarantee`.
-- Sessions are kept in memory, so restarting the backend ends open sessions (the UI shows an error; start a new viva).
-- Fallback scoring is keyword-based. It's calibrated on the rubric examples, but it can miss unusual phrasings. The live model is better at this.
-- The analyzer recognises common BFS shapes (`deque`, `popleft`/`pop`, a `visited`/`seen` set). Unusual code still works, with a notice and less specific line links.
-- The live-model path is covered by stubbed tests but was not run against a real key during development.
-- Out of scope: auth, class heatmap, extra labs, running student code, deployment.
+- **Demo mode only knows the example lab.** Other materials need a key.
+- **Live generation** was exercised with real calls during development (on the earlier explainer version), and the quiz path is covered with a stubbed model. Model-written questions can still be imperfect; the sources shown with each answer let students check them.
+- **Scanned PDFs** (images without a text layer) can't be read. Paste the text instead.
+- **Size limits:** the manual is limited to 300,000 characters and the code to 200,000 characters (up to 20 files).
+- **In-memory storage:** restarting the backend loses open quizzes.
+- **Out of scope:** accounts, progress across sessions, and spaced repetition.
+
+## Other code in this repo
+
+`backend/parse.py` + `backend/prompt.txt` are Ibitayo's original CLI generator (manual + code → 10 open questions as JSON). They're kept unchanged; the web app's prompt is adapted from them.

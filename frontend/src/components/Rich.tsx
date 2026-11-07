@@ -1,15 +1,24 @@
 import { Fragment, type ReactNode } from "react";
 
+<<<<<<< HEAD
 /** Tiny markdown subset used by authored content: paragraphs, **bold**, *italic* and `code`. */
 export function inline(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g);
   return parts.map((p, i) => {
     if (p.startsWith("**") && p.endsWith("**")) return <strong key={i} className="font-extrabold">{p.slice(2, -2)}</strong>;
     if (p.startsWith("`") && p.endsWith("`")) return <code key={i} className="inline-code">{p.slice(1, -1)}</code>;
+=======
+/** Tiny markdown subset: **bold**, *italic*, `code`. Model text is rendered as text, never as HTML. */
+export function inline(text: string): ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g).map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**") && p.length > 4) return <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>;
+    if (p.startsWith("`") && p.endsWith("`") && p.length > 2) return <code key={i} className="inline-code">{p.slice(1, -1)}</code>;
+>>>>>>> demo_front
     if (p.startsWith("*") && p.endsWith("*") && p.length > 2) return <em key={i}>{p.slice(1, -1)}</em>;
     return <Fragment key={i}>{p}</Fragment>;
   });
 }
+<<<<<<< HEAD
 
 export function Rich({ text, className = "" }: { text: string; className?: string }) {
   return (
@@ -18,3 +27,5 @@ export function Rich({ text, className = "" }: { text: string; className?: strin
     </div>
   );
 }
+=======
+>>>>>>> demo_front

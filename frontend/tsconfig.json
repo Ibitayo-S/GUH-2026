@@ -8,7 +8,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+<<<<<<< HEAD
     "noFallthroughCasesInSwitch": true,
+=======
+>>>>>>> demo_front
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,

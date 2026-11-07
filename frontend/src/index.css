@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+<<<<<<< HEAD
 @theme {
   --font-sans: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
@@ -32,10 +33,43 @@ body {
   margin: 0;
   background: #f7f6fb;
   color: #1f1b2e;
+=======
+/* Viva: the exam answer sheet. Paper, dropout-green form ink, graphite pencil, the marker's red pen. */
+@theme {
+  --font-sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Archivo", "Public Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --font-hand: "Kalam", "Segoe Print", cursive;
+
+  --color-paper: #f6f7f4;      /* page */
+  --color-sheet: #ffffff;      /* printed sheets */
+  --color-ink: #26282c;        /* graphite: text and filled bubbles */
+  --color-muted: #6b7069;
+  --color-rule: #d5dbd6;
+  --color-form: #1e6f5c;       /* dropout ink: everything "printed" on the form */
+  --color-form-deep: #155244;
+  --color-form-tint: #e4efea;
+  --color-redpen: #d3283e;     /* the marker: results only */
+  --color-redpen-tint: #fbe9eb;
+  --color-hl: #ffe066;         /* highlighter on cited code lines */
+}
+
+html, body, #root { min-height: 100%; }
+body {
+  margin: 0;
+  background-color: var(--color-paper);
+  /* faint printed grid, like exam paper */
+  background-image:
+    linear-gradient(to right, rgb(30 111 92 / .045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(30 111 92 / .045) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--color-ink);
+>>>>>>> demo_front
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
+<<<<<<< HEAD
 /* Chunky, tactile buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
@@ -80,4 +114,72 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .pop-in, .pulse-ring { animation: none; }
+=======
+.font-display { font-family: var(--font-display); }
+/* Condensed caps: the voice of printed form labels */
+.form-label {
+  font-family: var(--font-display); font-stretch: 72%; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; font-size: .72rem; color: var(--color-form);
+}
+.display-wide { font-family: var(--font-display); font-stretch: 112%; font-weight: 850; letter-spacing: -.02em; }
+.font-mono, code, pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+
+.sheet { background: var(--color-sheet); border: 1px solid var(--color-rule); border-radius: 6px;
+  box-shadow: 0 1px 0 rgb(38 40 44 / .04), 0 8px 24px -12px rgb(38 40 44 / .18); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border-radius: 6px;
+  padding: .7rem 1.15rem; font-family: var(--font-display); font-stretch: 92%; font-weight: 700; font-size: .98rem;
+  border: 1.5px solid transparent; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--color-form); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--color-form-deep); }
+.btn-ghost { background: var(--color-sheet); color: var(--color-ink); border-color: var(--color-rule); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--color-form); color: var(--color-form-deep); }
+.link { color: var(--color-form); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.link:hover { color: var(--color-form-deep); }
+
+:focus-visible { outline: 2.5px solid var(--color-form); outline-offset: 2px; border-radius: 4px; }
+
+.inline-code { font-family: var(--font-mono); font-size: .88em; background: var(--color-form-tint);
+  color: var(--color-form-deep); padding: .08em .32em; border-radius: 3px; overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+h1, h2, h3, li, p { overflow-wrap: anywhere; }
+.prose-viva p { margin: 0 0 .6rem; line-height: 1.6; }
+.prose-viva p:last-child { margin-bottom: 0; }
+
+/* ---------------------------------------------------------------- bubbles */
+.bubble { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px;
+  border: 1.5px solid var(--color-form); color: var(--color-form); background: var(--color-sheet);
+  font-family: var(--font-display); font-stretch: 75%; font-weight: 700; line-height: 1;
+  transition: background-color .12s, border-color .12s, color .12s, transform .12s; }
+.bubble.filled { background: var(--color-ink); border-color: var(--color-ink); color: transparent; }
+.bubble.filled.pop { animation: fill-pop .18s ease-out; }
+@keyframes fill-pop { from { transform: scale(.82); } to { transform: none; } }
+
+/* ---------------------------------------------------------------- the marker's red pen */
+.pen { fill: none; stroke: var(--color-redpen); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.pen.draw { stroke-dasharray: var(--len, 80); stroke-dashoffset: var(--len, 80); animation: pen-draw .32s ease-out forwards; }
+@keyframes pen-draw { to { stroke-dashoffset: 0; } }
+.hand { font-family: var(--font-hand); color: var(--color-redpen); }
+.fade-in { opacity: 0; animation: fade .3s ease-out forwards; }
+@keyframes fade { to { opacity: 1; } }
+
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .25s ease-out both; }
+
+/* Generating: bubbles get filled one after another, like someone working down the sheet */
+@keyframes think { 0%, 15% { background: var(--color-sheet); border-color: var(--color-form); }
+  30%, 80% { background: var(--color-ink); border-color: var(--color-ink); } 100% { background: var(--color-sheet); } }
+.thinking .bubble { animation: think 2.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pen.draw { animation: none; stroke-dashoffset: 0; }
+  .fade-in { animation: none; opacity: 1; }
+  .rise, .bubble.filled.pop, .thinking .bubble { animation: none; }
+}
+
+@media print {
+  body { background: #fff; }
+  header, .no-print { display: none !important; }
+>>>>>>> demo_front
 }
