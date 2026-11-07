@@ -1,0 +1,14 @@
+You are writing assessment questions for a university lab exercise.
+
+<manual>
+{manual}
+</manual>
+
+<code>
+{code}
+</code>
+
+Write 10 questions that test whether a student understood this lab and the code.
+Mix: conceptual, code-reading, and debugging questions. Each must be answerable
+from the material above. Return ONLY a JSON array of objects with keys:
+type, question, answer, rationale, source (manual section or file/function).
