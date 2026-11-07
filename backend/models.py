@@ -178,6 +178,7 @@ class Finding(BaseModel):
     concept_id: ConceptId
     lines: list[int]
     message: str
+    fix: str
 
 
 class Question(BaseModel):
@@ -186,7 +187,7 @@ class Question(BaseModel):
     text: str
     code_lines: list[int]
     attempt: int
-    source: Source
+    source: Literal["model", "authored"]
 
 
 class Feedback(BaseModel):
