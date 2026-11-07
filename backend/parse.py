@@ -1,7 +1,6 @@
 import sys, json, pathlib
 import anthropic, pymupdf
 from dotenv import load_dotenv
-load_dotenv()
 
 SKIP_DIRS = {".git", "node_modules", "build", "target", "__pycache__", ".idea"}
 CODE_EXT = {".java", ".py", ".c", ".cpp", ".h", ".js", ".ts", ".kt", ".rs", ".go"}
@@ -25,21 +24,23 @@ def read_code(path):
         parts.append(f"=== FILE: {rel} ===\n{f.read_text(errors='ignore')[:MAX_FILE_CHARS]}")
     return "\n\n".join(parts)
 
-manual = read_manual(sys.argv[1])
-code = read_code(sys.argv[2])
-print(f"manual: {len(manual)} chars, code: {len(code)} chars", file=sys.stderr)
+if __name__ == "__main__":
+    load_dotenv()
+    manual = read_manual(sys.argv[1])
+    code = read_code(sys.argv[2])
+    print(f"manual: {len(manual)} chars, code: {len(code)} chars", file=sys.stderr)
 
-template = pathlib.Path("prompt.txt").read_text()
-assert "{manual}" in template and "{code}" in template, "prompt.txt missing placeholders"
-prompt = template.replace("{manual}", manual).replace("{code}", code)
+    template = pathlib.Path("prompt.txt").read_text()
+    assert "{manual}" in template and "{code}" in template, "prompt.txt missing placeholders"
+    prompt = template.replace("{manual}", manual).replace("{code}", code)
 
-client = anthropic.Anthropic()
-resp = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=16000,
-    messages=[{"role": "user", "content": prompt}],
-)
-text = "".join(b.text for b in resp.content if b.type == "text")
-text = text.strip().removeprefix("```json").removesuffix("```").strip()
-questions = json.loads(text)
-print(json.dumps(questions, indent=2))
+    client = anthropic.Anthropic()
+    resp = client.messages.create(
+        model="claude-sonnet-5-5",
+        max_tokens=16000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    text = text.strip().removeprefix("```json").removesuffix("```").strip()
+    questions = json.loads(text)
+    print(json.dumps(questions, indent=2))
