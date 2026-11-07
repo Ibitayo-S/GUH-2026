@@ -181,7 +181,7 @@ def render(state: LessonState, lab: Lab, analysis: Analysis) -> LessonView:
     if state.kind == "prereq":
         pre = lab.concept(state.prereq_offer)
         return LessonView(**base, title=f"This builds on the {pre.label}",
-                          body=(f"Your answer suggests the tricky part is **{pre.label}**, which {label.lower()} depends on. "
+                          body=(f"Your answer suggests the tricky part is the **{pre.label}**, which the {label.lower()} builds on. "
                                 "Want a quick detour through it first? You'll come straight back here afterwards."),
                           prereq_offer=state.prereq_offer)
 

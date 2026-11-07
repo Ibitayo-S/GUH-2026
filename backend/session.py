@@ -146,7 +146,7 @@ class Session:
     def view(self) -> SessionView:
         progress = []
         for i, cid in enumerate(self.order):
-            if self.phase == "done" or i < self.idx:
+            if self.phase == "done" or i < self.idx or (i == self.idx and self.phase == "feedback"):
                 status = self._status(cid)
             elif i == self.idx:
                 status = "learning" if self.phase == "learning" else "current"
@@ -183,7 +183,8 @@ class Session:
             concepts.append(ConceptReport(
                 concept_id=cid, label=self.lab.concept(cid).label, status=status, best_score=best,
                 attempts=atts, evidence=best_att.evidence if best_att else None,
-                code_lines=self.analysis.lines.get(cid, []), used_learning=cid in self.learned,
+                code_lines=sorted(set(self.analysis.lines.get(cid, [])) | set(finding.lines if finding else [])),
+                used_learning=cid in self.learned,
                 checks_correct=c[0], checks_total=c[1],
                 finding=finding.message if finding else None, next_step=next_step,
             ))
