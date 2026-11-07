@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-export function formatLines(lines: number[], word = "line"): string {
-  if (!lines.length) return "";
-  const s = [...lines].sort((a, b) => a - b).map(String);
-  if (s.length === 1) return `${word} ${s[0]}`;
-  return `${word}s ${s.slice(0, -1).join(", ")} and ${s[s.length - 1]}`;
-=======
 import type { LineRange, QuestionType } from "./types";
 
 export function rangesLabel(rs: LineRange[]): string {
@@ -33,5 +26,4 @@ export async function fileToBase64(file: File): Promise<string> {
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   return btoa(binary);
->>>>>>> demo_front
 }

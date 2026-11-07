@@ -1,39 +1,5 @@
 @import "tailwindcss";
 
-<<<<<<< HEAD
-@theme {
-  --font-sans: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
-
-  --color-brand-50: #f3f0ff;
-  --color-brand-100: #e7e0ff;
-  --color-brand-200: #cfc2ff;
-  --color-brand-400: #9b7bff;
-  --color-brand-500: #7c55ff;
-  --color-brand-600: #6d4aff;
-  --color-brand-700: #5632e0;
-  --color-brand-800: #4122b3;
-
-  --color-good-100: #dcfce7;
-  --color-good-500: #22c55e;
-  --color-good-600: #16a34a;
-  --color-good-700: #15803d;
-  --color-mid-100: #fef3c7;
-  --color-mid-500: #f59e0b;
-  --color-mid-700: #b45309;
-  --color-bad-100: #ffe4e6;
-  --color-bad-500: #f43f5e;
-  --color-bad-700: #be123c;
-}
-
-html, body, #root { height: 100%; }
-/* Code must show exactly what the student typed: no `==` → `≡` style ligatures. */
-.font-mono, code, textarea.font-mono { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
-body {
-  margin: 0;
-  background: #f7f6fb;
-  color: #1f1b2e;
-=======
 /* Viva: the exam answer sheet. Paper, dropout-green form ink, graphite pencil, the marker's red pen. */
 @theme {
   --font-sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -64,57 +30,10 @@ body {
     linear-gradient(to bottom, rgb(30 111 92 / .045) 1px, transparent 1px);
   background-size: 24px 24px;
   color: var(--color-ink);
->>>>>>> demo_front
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-<<<<<<< HEAD
-/* Chunky, tactile buttons */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  border-radius: 1rem; padding: .7rem 1.15rem; font-weight: 800; letter-spacing: .01em;
-  transition: transform .06s ease, box-shadow .06s ease, background-color .15s ease, opacity .15s;
-  user-select: none; cursor: pointer; border: 2px solid transparent;
-}
-.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 0 var(--shadow, transparent); }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn-primary { --shadow: var(--color-brand-800); background: var(--color-brand-600); color: white; box-shadow: 0 4px 0 0 var(--shadow); }
-.btn-primary:hover:not(:disabled) { background: var(--color-brand-500); }
-.btn-good { --shadow: var(--color-good-700); background: var(--color-good-500); color: white; box-shadow: 0 4px 0 0 var(--shadow); }
-.btn-good:hover:not(:disabled) { background: var(--color-good-600); }
-.btn-ghost { --shadow: #d9d5e6; background: white; color: #3b3355; border-color: #e4e0ef; box-shadow: 0 4px 0 0 var(--shadow); }
-.btn-ghost:hover:not(:disabled) { background: #faf9fd; }
-.btn-soft { background: var(--color-brand-50); color: var(--color-brand-700); border-color: var(--color-brand-100); }
-.btn-soft:hover:not(:disabled) { background: var(--color-brand-100); }
-
-.chip {
-  display: inline-flex; align-items: center; gap: .4rem; border-radius: 999px;
-  padding: .45rem .85rem; font-weight: 700; font-size: .875rem;
-  background: white; border: 2px solid #e4e0ef; color: #3b3355; cursor: pointer;
-  transition: border-color .15s, background-color .15s, transform .06s;
-}
-.chip:hover:not(:disabled) { border-color: var(--color-brand-400); color: var(--color-brand-700); }
-.chip:active:not(:disabled) { transform: translateY(1px); }
-.chip:disabled { opacity: .45; cursor: not-allowed; }
-
-.card { background: white; border-radius: 1.5rem; border: 2px solid #ece9f5; box-shadow: 0 6px 0 0 #ece9f5; }
-
-.prose-viva p { margin: 0 0 .75rem; line-height: 1.6; }
-.prose-viva p:last-child { margin-bottom: 0; }
-.prose-viva code, .inline-code {
-  font-family: var(--font-mono); font-size: .86em; background: var(--color-brand-50);
-  color: var(--color-brand-800); padding: .1em .35em; border-radius: .4em;
-}
-
-@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
-.pop-in { animation: pop-in .28s cubic-bezier(.2,.9,.3,1.2) both; }
-@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(124,85,255,.45); } 100% { box-shadow: 0 0 0 10px rgba(124,85,255,0); } }
-.pulse-ring { animation: pulse-ring 1.6s ease-out infinite; }
-
-@media (prefers-reduced-motion: reduce) {
-  .pop-in, .pulse-ring { animation: none; }
-=======
 .font-display { font-family: var(--font-display); }
 /* Condensed caps: the voice of printed form labels */
 .form-label {
@@ -181,5 +100,4 @@ h1, h2, h3, li, p { overflow-wrap: anywhere; }
 @media print {
   body { background: #fff; }
   header, .no-print { display: none !important; }
->>>>>>> demo_front
 }
